@@ -1,0 +1,20 @@
+id: recommend_exercise
+name: Exercise Recommendation
+version: 1.0.0
+author: muse-iot-core
+description: >
+  Daily flag: the user should do physical activity today.
+  Specific type and duration are in the LLM reason field.
+
+commands:
+  - key: recommend_exercise
+    name: Exercise today
+    type: on_off
+    mqtt: actuator/recommend_exercise/set
+    values: ["on", "off"]
+
+hardware:
+  signal: notification
+
+compatible_devices:
+  - esp32_mqtt

@@ -1,0 +1,56 @@
+id: pregnant_adult
+name: Pregnancy Health Monitoring
+description: >
+  Daily monitoring profile for a pregnant adult. Target ranges and LLM advice
+  are adjusted for physiological changes during pregnancy.
+  Always used alongside regular OB/GYN care — not a replacement.
+
+demographics:
+  age: 28
+  gender: female
+  height_cm: 160
+  weight_kg: 65             # update weekly — weight gain tracking is important
+
+medical:
+  conditions: []
+  medications: []           # e.g. [folic_acid_400mcg_daily, iron_supplement]
+  allergies: []
+  last_checkup: null
+
+lifestyle:
+  job_type: light_active
+  avg_sleep_hours: 7.0
+  diet_type: balanced       # ensure folate, iron, calcium-rich foods
+  smoker: false             # smoking is strongly contraindicated in pregnancy
+  alcohol: never            # alcohol is contraindicated in pregnancy
+
+goals:
+  priority: pregnancy_health   # weight_loss | muscle_gain | energy | pregnancy_health | longevity
+  notes: >
+    Monitor for gestational hypertension and preeclampsia. Ensure adequate
+    hydration and iron. Avoid high-intensity exercise unless cleared by OB/GYN.
+
+special:
+  pregnant: true
+  gestational_week: 20      # update weekly
+  postpartum: false
+  recent_surgery: false
+  high_altitude: false
+
+# ── Target ranges adjusted for pregnancy ─────────────────────────────────
+# Resting HR is naturally 10–20 bpm higher during pregnancy.
+# SpO2 concern threshold is raised to 95% (vs 94% normally).
+# BP above 140/90 during pregnancy = warning sign (possible preeclampsia).
+phases:
+  monitoring:
+    targets:
+      body_temp:          [36.1, 37.5]   # °C  slightly elevated baseline is normal
+      spo2:               [95, 100]       # %   concern threshold higher in pregnancy
+      heart_rate:         [70, 100]       # bpm resting HR naturally elevated 10–20 bpm
+      blood_pressure_sys: [90, 120]       # mmHg — above 140 = consult OB/GYN
+      blood_pressure_dia: [60, 80]        # mmHg — above 90 = consult OB/GYN
+      perfusion_index:    [2.0, 20.0]
+    notes: >
+      BP above 140/90 during any trimester warrants immediate OB/GYN contact.
+      Swelling of hands/face combined with high BP = possible preeclampsia.
+      Fetal movement monitoring (not a sensor) should accompany these readings.

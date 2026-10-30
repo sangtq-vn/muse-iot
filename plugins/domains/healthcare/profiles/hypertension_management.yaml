@@ -1,0 +1,53 @@
+id: hypertension_management
+name: Hypertension Management
+description: >
+  Daily monitoring for someone managing diagnosed hypertension (Stage 1 or 2).
+  Stricter BP target ranges and earlier alert thresholds than adult_general.
+
+demographics:
+  age: 52
+  gender: male
+  height_cm: 172
+  weight_kg: 85
+
+medical:
+  conditions: [hypertension]
+  medications: [amlodipine_5mg_daily]   # update with actual medication
+  allergies: []
+  last_checkup: null
+
+lifestyle:
+  job_type: sedentary
+  avg_sleep_hours: 6.0
+  diet_type: low_sodium     # DASH diet recommended for hypertension
+  smoker: false
+  alcohol: rarely
+
+goals:
+  target_weight_kg: 78      # weight reduction helps lower BP
+  fitness_target: light
+  priority: disease_management
+  notes: >
+    BP control is the primary goal. Secondary: weight loss and sodium reduction.
+    Exercise 30 min light–moderate most days. Limit sodium < 1500 mg/day.
+
+special:
+  pregnant: false
+  postpartum: false
+  recent_surgery: false
+  high_altitude: false
+
+# ── Tighter targets for hypertension management ───────────────────────────
+phases:
+  monitoring:
+    targets:
+      body_temp:          [36.1, 37.2]
+      spo2:               [95, 100]
+      heart_rate:         [55, 80]        # target lower resting HR with medication
+      blood_pressure_sys: [90, 130]       # stricter: below 130 is the goal with Htn
+      blood_pressure_dia: [60, 80]
+      perfusion_index:    [2.0, 20.0]
+    notes: >
+      Target BP below 130/80 per latest hypertension guidelines.
+      Alert the user if BP > 140/90 on two consecutive days — medication review needed.
+      Flag high sodium foods and stress as key triggers in the reason field.

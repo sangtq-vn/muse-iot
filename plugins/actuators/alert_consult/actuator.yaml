@@ -1,0 +1,21 @@
+id: alert_consult
+name: Doctor Consultation Recommended
+version: 1.0.0
+author: muse-iot-core
+description: >
+  Notification flag: a reading or trend warrants a non-urgent doctor visit.
+  Not an emergency — but the user should book an appointment this week.
+
+commands:
+  - key: alert_consult
+    name: Consult doctor recommended
+    type: on_off
+    mqtt: actuator/alert_consult/set
+    values: ["on", "off"]
+
+hardware:
+  signal: notification
+  notes: Subscribe to MQTT topic from any notification client.
+
+compatible_devices:
+  - esp32_mqtt

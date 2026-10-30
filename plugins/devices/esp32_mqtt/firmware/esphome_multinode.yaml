@@ -1,0 +1,126 @@
+# ESPHome multi-node template for Muse-IoT
+# One copy per physical board. Set node_id to a unique string per board.
+# Topics used:
+#   publish: muse-iot/nodes/<node_id>/sensors/<sensor_id>
+#   subscribe: muse-iot/nodes/<node_id>/actuator/<actuator_id>/set
+#
+# Flash with: esphome run esphome_multinode.yaml
+
+substitutions:
+  device_name: muse-iot-node-left
+  node_id: node_left           # unique per board — must match nodes[].id in config.yaml
+  topic_prefix: muse-iot
+
+esphome:
+  name: ${device_name}
+  friendly_name: "Muse-IoT ${node_id}"
+
+esp8266:
+  board: nodemcuv2             # NodeMCU v2 / ESP8266. Change to esp32dev for ESP32.
+
+# ── Connectivity ──────────────────────────────────────────────────────────
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  ap:
+    ssid: "Muse-IoT Fallback"
+    password: "muse-iot123"
+
+mqtt:
+  broker: !secret mqtt_broker
+  port: 1883
+  username: !secret mqtt_username
+  password: !secret mqtt_password
+  # No topic_prefix here — we publish full topics manually per sensor
+
+# ── Sensors ───────────────────────────────────────────────────────────────
+
+# DHT11 — temperature + humidity on GPIO14 (D5 on NodeMCU)
+sensor:
+  - platform: dht
+    pin: GPIO14
+    model: DHT11
+    temperature:
+      name: "Air Temperature"
+      id: dht11_temp
+      on_value:
+        then:
+          - mqtt.publish:
+              topic: "${topic_prefix}/nodes/${node_id}/sensors/dht11_temp"
+              payload: !lambda 'return to_string(x);'
+    humidity:
+      name: "Air Humidity"
+      id: dht11_humidity
+      on_value:
+        then:
+          - mqtt.publish:
+              topic: "${topic_prefix}/nodes/${node_id}/sensors/dht11_humidity"
+              payload: !lambda 'return to_string(x);'
+    update_interval: 30s
+
+  # Resistive soil moisture (ADC on A0 — only one ADC pin on ESP8266)
+  - platform: adc
+    pin: A0
+    name: "Soil Moisture"
+    id: soil_resistive
+    filters:
+      # Calibrate: dry=1.0V (0%) wet=0.0V (100%). Adjust for your sensor.
+      - calibrate_linear:
+          - 1.0 -> 0
+          - 0.0 -> 100
+      - clamp:
+          min_value: 0
+          max_value: 100
+    on_value:
+      then:
+        - mqtt.publish:
+            topic: "${topic_prefix}/nodes/${node_id}/sensors/soil_resistive"
+            payload: !lambda 'return to_string(x);'
+    update_interval: 30s
+
+# ── Actuators (assign in config.yaml nodes[].actuators) ──────────────────
+
+# Relay 1 on GPIO5 (D1 on NodeMCU)
+switch:
+  - platform: gpio
+    pin: GPIO5
+    name: "Relay 1"
+    id: relay_pump
+    restore_mode: ALWAYS_OFF
+
+  # Relay 2 on GPIO4 (D2 on NodeMCU)
+  - platform: gpio
+    pin: GPIO4
+    name: "Relay 2"
+    id: relay_fan
+    restore_mode: ALWAYS_OFF
+
+# ── MQTT actuator command subscriptions ───────────────────────────────────
+
+  on_message:
+    - topic: "${topic_prefix}/nodes/${node_id}/actuator/relay_pump/set"
+      then:
+        - lambda: |-
+            auto doc = parse_json(x);
+            if (doc["value"] == "on") {
+              id(relay_pump).turn_on();
+            } else {
+              id(relay_pump).turn_off();
+            }
+
+    - topic: "${topic_prefix}/nodes/${node_id}/actuator/relay_fan/set"
+      then:
+        - lambda: |-
+            auto doc = parse_json(x);
+            if (doc["value"] == "on") {
+              id(relay_fan).turn_on();
+            } else {
+              id(relay_fan).turn_off();
+            }
+
+# ── Status ────────────────────────────────────────────────────────────────
+
+binary_sensor:
+  - platform: status
+    name: "Node Online"

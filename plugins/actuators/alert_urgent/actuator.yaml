@@ -1,0 +1,24 @@
+id: alert_urgent
+name: Urgent Medical Alert
+version: 1.0.0
+author: muse-iot-core
+description: >
+  Notification flag: a biometric reading requires immediate medical attention.
+  When ON, the user should contact a doctor or emergency services today.
+  Auto-triggered by safety rules on critical readings (SpO2 < 90, HR > 160, etc.).
+
+commands:
+  - key: alert_urgent
+    name: Urgent alert active
+    type: on_off
+    mqtt: actuator/alert_urgent/set
+    values: ["on", "off"]
+
+hardware:
+  signal: notification   # no GPIO — subscribe to MQTT topic from phone/Telegram
+  notes: >
+    Subscribe to this topic from any notification client (MQTT Dashboard,
+    Node-RED, Home Assistant, or the built-in Telegram chat engine).
+
+compatible_devices:
+  - esp32_mqtt

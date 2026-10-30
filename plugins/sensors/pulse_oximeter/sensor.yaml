@@ -1,0 +1,49 @@
+id: pulse_oximeter
+name: Pulse Oximeter
+version: 1.0.0
+author: muse-iot-core
+description: >
+  Finger or wrist pulse oximeter — measures blood oxygen saturation (SpO2),
+  heart rate (BPM), and Perfusion Index (PI) in a single device.
+  Data pushed via MQTT from a BLE gateway, smartwatch, or companion app.
+
+topics:
+  - key: spo2
+    name: Blood oxygen saturation
+    unit: percent
+    mqtt: sensors/spo2
+    range: [70, 100]
+    notes: >
+      Normal: 95–100 %. Concerning: 90–94 %. Critical: < 90 %.
+      Low PI (< 1 %) can reduce accuracy — ensure good probe contact.
+
+  - key: heart_rate
+    name: Heart rate
+    unit: bpm
+    mqtt: sensors/heart_rate
+    range: [30, 220]
+    notes: >
+      Normal resting: 60–100 bpm. Trained athletes may rest at 40–60 bpm.
+      Measure at rest, seated, after 5 min of calm.
+
+  - key: perfusion_index
+    name: Perfusion index
+    unit: percent
+    mqtt: sensors/perfusion_index
+    range: [0.0, 20.0]
+    notes: >
+      PI = pulsatile signal / non-pulsatile signal × 100.
+      Normal: 2–20 %. Low (< 1 %) may indicate poor peripheral circulation
+      or probe placement issue. High (> 20 %) is normal for warm extremities.
+
+poll_interval_sec: 86400
+
+hardware:
+  protocol: mqtt
+  notes: >
+    Publish all three readings independently to their respective topics.
+    Compatible with any BLE oximeter paired to a phone app with MQTT export,
+    or an ESP32 BLE-to-MQTT gateway.
+
+compatible_devices:
+  - esp32_mqtt

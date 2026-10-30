@@ -1,0 +1,91 @@
+id: healthcare
+name: Healthcare & Wellness Advisor
+version: 1.0.0
+author: muse-iot-core
+description: >
+  Daily LLM-driven personal health monitoring and advisory.
+  Reads biometric sensors (temperature, SpO2, heart rate, blood pressure,
+  perfusion index) and delivers personalised daily health guidance.
+  The LLM acts as a preventive health advisor — not a diagnostician.
+
+sensors:
+  - id: body_temp
+    name: Body temperature
+    unit: celsius
+    required: false
+    notes: From body_temperature plugin. Measured once per day.
+
+  - id: spo2
+    name: Blood oxygen saturation
+    unit: percent
+    required: false
+    notes: From pulse_oximeter plugin.
+
+  - id: heart_rate
+    name: Heart rate (resting)
+    unit: bpm
+    required: false
+    notes: From pulse_oximeter plugin. Measure seated after 5 min rest.
+
+  - id: perfusion_index
+    name: Perfusion index
+    unit: percent
+    required: false
+    notes: From pulse_oximeter plugin. Reflects peripheral circulation quality.
+
+  - id: blood_pressure_sys
+    name: Systolic blood pressure
+    unit: mmHg
+    required: false
+    notes: From blood_pressure plugin. Same arm, same time, after 5 min rest.
+
+  - id: blood_pressure_dia
+    name: Diastolic blood pressure
+    unit: mmHg
+    required: false
+    notes: From blood_pressure plugin.
+
+actuators:
+  - id: alert_urgent
+    name: Urgent — seek medical attention today
+  - id: alert_consult
+    name: Book a doctor appointment this week
+  - id: recommend_exercise
+    name: Exercise recommended today
+  - id: recommend_rest
+    name: Rest / sleep recommended today
+  - id: recommend_hydration
+    name: Drink more water today
+  - id: recommend_diet
+    name: Dietary adjustment recommended today
+
+safety:
+  # Critical biometric thresholds — LLM cannot override these.
+  # alert_urgent is forced ON; the Telegram chat engine delivers emergency notification.
+  - "alert_urgent ON (forced) if spo2 < 90"
+  - "alert_urgent ON (forced) if heart_rate > 160"
+  - "alert_urgent ON (forced) if heart_rate < 40"
+  - "alert_urgent ON (forced) if body_temp > 39.5"
+  - "alert_urgent ON (forced) if blood_pressure_sys > 180"
+  # Concerning — warrants a scheduled doctor visit, not emergency
+  - "alert_consult ON (forced) if spo2 < 94"
+  - "alert_consult ON (forced) if blood_pressure_sys > 140"
+  - "alert_consult ON (forced) if blood_pressure_dia > 90"
+  - "alert_consult ON (forced) if body_temp > 38.0"
+
+poll:
+  interval_sec: 86400   # once per day — health decisions are daily, not per-minute
+
+actuator_limits:
+  # No physical duration limits needed — these are notification flags
+  alert_urgent:   {}
+  alert_consult:  {}
+  recommend_exercise:   {}
+  recommend_rest:       {}
+  recommend_hydration:  {}
+  recommend_diet:       {}
+
+session:
+  concept: health_monitoring_period
+  start_event: HEALTH_MONITORING_STARTED
+  end_event: HEALTH_MONITORING_ENDED

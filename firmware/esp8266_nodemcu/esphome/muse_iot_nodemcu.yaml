@@ -1,0 +1,106 @@
+# Muse-IoT — ESPHome firmware for ESP8266 NodeMCU
+# Hardware:
+#   D2 (GPIO4) — DHT11 temperature & humidity
+#   A0         — Resistive soil moisture sensor (LM393 board, analog output)
+#
+# Flash: esphome run muse-iot_nodemcu.yaml
+
+substitutions:
+  device_name: muse-iot-nodemcu
+  topic_prefix: muse-iot       # must match config.yaml device.config.topic_prefix
+
+  # ── Credentials — fill these in ──────────────────────────────────────────
+  wifi_ssid:      "YourWiFiSSID"
+  wifi_password:  "YourWiFiPassword"
+  mqtt_broker:    "192.168.1.100"   # IP of your MQTT broker (or "mqtt" for Docker)
+  mqtt_username:  ""                # leave empty if broker has no auth
+  mqtt_password:  ""
+
+esphome:
+  name: ${device_name}
+  friendly_name: Muse-IoT NodeMCU
+
+esp8266:
+  board: nodemcuv2
+
+# ── Connectivity ─────────────────────────────────────────────────────────────
+
+wifi:
+  ssid: ${wifi_ssid}
+  password: ${wifi_password}
+  ap:                              # fallback hotspot if WiFi unreachable
+    ssid: "Muse-IoT-Fallback"
+    password: "muse-iot123"
+
+captive_portal:
+
+logger:
+
+mqtt:
+  broker: ${mqtt_broker}
+  username: ${mqtt_username}
+  password: ${mqtt_password}
+  # topic_prefix is NOT set here — topics are published manually below
+  # so they match the muse-iot/{topic_prefix}/sensors/<id> convention exactly.
+
+# ── Sensors ──────────────────────────────────────────────────────────────────
+
+sensor:
+  # DHT11 — temperature + humidity on D2 (GPIO4)
+  - platform: dht
+    pin: GPIO4
+    model: DHT11
+    temperature:
+      name: "Air Temperature"
+      id: dht11_temp
+      on_value:
+        then:
+          - mqtt.publish:
+              topic: "${topic_prefix}/sensors/dht11_temp"
+              payload: !lambda 'return to_string(x);'
+    humidity:
+      name: "Air Humidity"
+      id: dht11_humidity
+      on_value:
+        then:
+          - mqtt.publish:
+              topic: "${topic_prefix}/sensors/dht11_humidity"
+              payload: !lambda 'return to_string(x);'
+    update_interval: 30s
+
+  # Resistive soil moisture — analog output of LM393 board on A0
+  # Dry probe = high voltage (~1.0 normalised), wet probe = low voltage (~0.3).
+  # Adjust the two calibration points after testing in dry soil and in water.
+  - platform: adc
+    pin: A0
+    name: "Soil Moisture"
+    id: soil_resistive
+    filters:
+      - calibrate_linear:
+          - 1.0  -> 0     # dry — measure your actual dry reading and update this
+          - 0.30 -> 100   # wet — measure your actual wet reading and update this
+      - clamp:
+          min_value: 0
+          max_value: 100
+    on_value:
+      then:
+        - mqtt.publish:
+            topic: "${topic_prefix}/sensors/soil_resistive"
+            payload: !lambda 'return to_string(x);'
+    update_interval: 30s
+
+# ── Status ───────────────────────────────────────────────────────────────────
+
+binary_sensor:
+  - platform: status
+    name: "NodeMCU Online"
+    on_press:
+      then:
+        - mqtt.publish:
+            topic: "${topic_prefix}/status/${device_name}"
+            payload: "online"
+    on_release:
+      then:
+        - mqtt.publish:
+            topic: "${topic_prefix}/status/${device_name}"
+            payload: "offline"

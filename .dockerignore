@@ -1,0 +1,15 @@
+.git/
+.github/
+.DS_Store
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+tests/
+docs/
+docker/
+*.md
+*.svg

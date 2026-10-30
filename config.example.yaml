@@ -1,0 +1,91 @@
+# Muse-IoT configuration example.
+# Copy to config.yaml and fill in your values:
+#   cp config.example.yaml config.yaml
+
+box_id: my_box
+
+# ── Domain & profile ──────────────────────────────────────────────────────
+# Smart garden (default)
+domain: smart_garden
+profile: swiss_chard        # loads plugins/domains/smart_garden/profiles/swiss_chard.yaml
+
+# Healthcare advisor — uncomment to switch:
+# domain: healthcare
+# profile: adult_general    # or: pregnant_adult | hypertension_management
+
+# ── Hardware adapter ──────────────────────────────────────────────────────
+# Change adapter to swap hardware (esp32_mqtt, rpi_gpio, arduino_serial, http_rest)
+device:
+  adapter: esp32_mqtt
+  config:
+    broker_host: 192.168.1.XXX   # your MQTT broker IP (or "mqtt" inside Docker)
+    broker_port: 1883
+    topic_prefix: muse-iot
+
+# ── Multi-node sensor network (alternative to `device:`) ─────────────────
+# Use when one board cannot cover the whole box.
+# Each node subscribes to: muse-iot/nodes/<node_id>/sensors/#
+# Uncomment and delete the `device:` section above to enable.
+#
+#nodes:
+#  - id: node_left
+#    adapter: esp32_mqtt
+#    config:
+#      broker_host: 192.168.1.XXX
+#      broker_port: 1883
+#      topic_prefix: muse-iot
+#    actuators: [relay_pump, relay_fan]
+#
+#  - id: node_right
+#    adapter: esp32_mqtt
+#    config:
+#      broker_host: 192.168.1.XXX
+#      broker_port: 1883
+#      topic_prefix: muse-iot
+#    actuators: []
+
+# ── Active sensors (must match what the firmware publishes) ───────────────
+sensors:
+  - plugin: dht11
+  - plugin: resistive_soil
+
+# ── Active actuators ──────────────────────────────────────────────────────
+actuators:
+  - plugin: relay_pump
+  - plugin: relay_fan
+
+# ── LLM (Muse — the only supported provider) ─────────────────────────────
+# Get a key at https://dev.meta.ai — or export META_API_KEY and omit api_key.
+llm:
+  provider: muse
+  model: muse-spark-1.3
+  api_key: YOUR_META_API_KEY
+  # base_url: https://api.meta.ai/v1   # optional override
+  call_interval_sec: 120
+
+# ── History storage ───────────────────────────────────────────────────────
+history:
+  backend: sqlite                    # zero config, works on Pi Zero
+  # backend: influxdb
+  # config:
+  #   host: localhost
+  #   port: 8086
+  #   token: YOUR_INFLUX_TOKEN
+  #   bucket: muse-iot
+
+# ── External chat (optional) ─────────────────────────────────────────────
+# Enable to control the box and receive alerts via Telegram.
+# Setup: pip install "muse-iot[telegram]"
+#        Create a bot via @BotFather → copy token below
+#        Get your chat ID from @userinfobot
+#
+#chat:
+#  engine: telegram
+#  config:
+#    token: "YOUR_TELEGRAM_BOT_TOKEN"
+#    allowed_chat_ids: [YOUR_TELEGRAM_USER_ID]
+
+# ── Logging ───────────────────────────────────────────────────────────────
+logging:
+  level: INFO     # DEBUG | INFO | WARNING | ERROR
+  file: ~/.muse-iot/logs/my_box.log

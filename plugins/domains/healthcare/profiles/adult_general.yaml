@@ -1,0 +1,49 @@
+id: adult_general
+name: Adult — General Health Monitoring
+description: >
+  Baseline daily monitoring for a healthy adult with no chronic conditions.
+  Copy and edit all fields to match the actual user before deploying.
+
+# ── Personal profile ──────────────────────────────────────────────────────
+demographics:
+  age: 31
+  gender: male              # male | female | other
+  height_cm: 165
+  weight_kg: 66             # update weekly or monthly
+  # BMI (auto-calculated for reference): 70 / (1.70²) = 24.2  → healthy range
+
+medical:
+  conditions: []            # e.g. [hypertension, type2_diabetes, asthma, hypothyroidism]
+  medications: []           # e.g. [metformin_500mg_daily, lisinopril_10mg_daily]
+  allergies: []             # e.g. [penicillin, shellfish]
+  last_checkup: null        # ISO date, e.g. 2025-01-15
+
+lifestyle:
+  job_type: sedentary       # sedentary | light_active | moderate_active | very_active
+  avg_sleep_hours: 6.5      # actual average — honest, not aspirational
+  diet_type: balanced       # balanced | vegetarian | vegan | keto | low_sodium | diabetic
+  smoker: false
+  alcohol: moderate           # never | rarely | moderate | frequent
+
+goals:
+  target_weight_kg: 60
+  fitness_target: moderate  # sedentary | light | moderate | active | athlete
+  priority: energy          # weight_loss | muscle_gain | energy | disease_management | longevity
+  notes: ""                 # any free-text goal context for the LLM
+
+special:
+  pregnant: false
+  postpartum: false
+  recent_surgery: false
+  high_altitude: false      # affects SpO2 baseline if living above 2000m
+
+# ── Target ranges (advisory — LLM uses these as reference, not hard limits) ─
+phases:
+  monitoring:
+    targets:
+      body_temp:          [36.1, 37.2]   # °C  normal oral range
+      spo2:               [95, 100]       # %   normal range (concern < 94, critical < 90)
+      heart_rate:         [60, 100]       # bpm resting normal
+      blood_pressure_sys: [90, 120]       # mmHg systolic
+      blood_pressure_dia: [60, 80]        # mmHg diastolic
+      perfusion_index:    [2.0, 20.0]    # %   normal peripheral perfusion

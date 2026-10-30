@@ -1,0 +1,28 @@
+id: body_temperature
+name: Body Temperature
+version: 1.0.0
+author: muse-iot-core
+description: >
+  Digital body thermometer — oral, axillary, tympanic, or non-contact.
+  Readings pushed via MQTT from a BLE gateway, companion app, or manual entry.
+
+topics:
+  - key: body_temp
+    name: Body temperature
+    unit: celsius
+    mqtt: sensors/body_temp
+    range: [34.0, 42.0]
+    notes: >
+      Normal oral: 36.1–37.2 °C. Fever threshold: ≥ 38.0 °C.
+      Axillary reads ~0.5 °C lower — add offset if using armpit measurement.
+
+poll_interval_sec: 86400   # once per day — pushed on measurement
+
+hardware:
+  protocol: mqtt
+  notes: >
+    No GPIO wiring required. Publish a float (°C) to the configured topic.
+    Payload: plain float "36.8" or JSON {"value": 36.8}
+
+compatible_devices:
+  - esp32_mqtt

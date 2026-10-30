@@ -1,0 +1,45 @@
+services:
+
+  mqtt-health:
+    image: eclipse-mosquitto:2
+    restart: unless-stopped
+    ports:
+      - "1884:1883"   # host port 1884 — avoids conflict with garden's 1883
+    volumes:
+      - ./docker/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - mqtt_health_data:/mosquitto/data
+    healthcheck:
+      test: ["CMD-SHELL", "mosquitto_pub -h localhost -t health -m ping 2>/dev/null || exit 1"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
+  healthcare:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      mqtt-health:
+        condition: service_healthy
+    environment:
+      - META_API_KEY=${META_API_KEY:-}
+    volumes:
+      - ./config_healthcare.yaml:/app/config.yaml:ro
+      - healthcare_data:/root/.muse-iot
+
+  healthcare-ui:
+    build: .
+    restart: unless-stopped
+    command: ["ui"]
+    ports:
+      - "7071:7070"   # garden UI is on 7070 — healthcare UI on 7071
+    volumes:
+      - ./config_healthcare.yaml:/app/config.yaml:ro
+      - healthcare_data:/root/.muse-iot
+    depends_on:
+      mqtt-health:
+        condition: service_healthy
+
+volumes:
+  mqtt_health_data:
+  healthcare_data:

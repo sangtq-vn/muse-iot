@@ -1,0 +1,98 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+
+  validate-plugins:
+    name: Validate plugin manifests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install pyyaml
+      - name: Validate all plugin YAML manifests
+        run: |
+          python3 - << 'EOF'
+          import yaml, sys
+          from pathlib import Path
+
+          SENSOR_REQUIRED   = {"id","name","version","author","topics","poll_interval_sec"}
+          ACTUATOR_REQUIRED = {"id","name","version","author","commands"}
+          DEVICE_REQUIRED   = {"id","name","version","transport"}
+          DOMAIN_REQUIRED   = {"id","name","sensors","actuators","safety","poll"}
+
+          checks = [
+            ("plugins/sensors",          "sensor.yaml",   SENSOR_REQUIRED),
+            ("plugins/actuators",        "actuator.yaml", ACTUATOR_REQUIRED),
+            ("plugins/devices",          "device.yaml",   DEVICE_REQUIRED),
+            ("plugins/domains",          "domain.yaml",   DOMAIN_REQUIRED),
+          ]
+          errors = []
+          for folder, filename, required in checks:
+            for manifest in Path(folder).rglob(filename):
+              with open(manifest) as f:
+                data = yaml.safe_load(f)
+              missing = required - data.keys()
+              if missing:
+                errors.append(f"{manifest}: missing {missing}")
+
+          if errors:
+            for e in errors: print(f"ERROR: {e}")
+            sys.exit(1)
+          print(f"All plugin manifests valid.")
+          EOF
+
+  test:
+    name: Run tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: pip install -e ".[dev]"
+      - name: Run unit tests
+        run: pytest tests/unit/ -v
+      - name: Run integration tests
+        run: pytest tests/integration/ -v
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install ruff
+      - run: ruff check core/ plugins/ cli/ tests/
+
+  plugin-pr-check:
+    name: Plugin PR — no core modifications
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Check no core files modified in plugin PR
+        run: |
+          # If PR only touches plugins/, it must not touch core/
+          CHANGED=$(git diff --name-only origin/${{ github.base_ref }}...HEAD)
+          CORE_CHANGES=$(echo "$CHANGED" | grep "^core/" || true)
+          PLUGIN_ONLY=$(echo "$CHANGED" | grep -v "^plugins/" | grep -v "^docs/" | grep -v "^tests/" | grep -v "README" | grep -v "CONTRIBUTING" || true)
+
+          if [ -n "$CORE_CHANGES" ] && [ -n "$(echo "$CHANGED" | grep "^plugins/")" ]; then
+            echo "⚠️  PR modifies both plugins/ and core/ — please split into separate PRs"
+            echo "Core files changed: $CORE_CHANGES"
+            # Warning only, not a hard failure — maintainers decide
+          fi
+          echo "Changed files: $CHANGED"

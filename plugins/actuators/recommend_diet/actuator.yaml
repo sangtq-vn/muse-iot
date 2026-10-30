@@ -1,0 +1,20 @@
+id: recommend_diet
+name: Dietary Adjustment Recommendation
+version: 1.0.0
+author: muse-iot-core
+description: >
+  Daily flag: a specific dietary change is recommended today.
+  What to eat, avoid, or reduce is described in the LLM reason field.
+
+commands:
+  - key: recommend_diet
+    name: Dietary change today
+    type: on_off
+    mqtt: actuator/recommend_diet/set
+    values: ["on", "off"]
+
+hardware:
+  signal: notification
+
+compatible_devices:
+  - esp32_mqtt

@@ -1,0 +1,59 @@
+id: mustard_green
+name: Mustard Green
+cultivar: Red Giant
+harvest_days: 30
+expected_duration_days: 60  # cut-and-come-again; bolt risk rises after 60d in heat
+notes: >
+  Fast-growing leafy green, highly suited to tropical climates.
+  Bolts quickly above 30°C sustained — once bolted, leaves turn bitter and woody.
+  Best harvested young (20–35 days) before heat stress accumulates.
+  Cut outer leaves or harvest whole head; regrows from base if cut above soil line.
+  Tolerates high humidity well; primary risk is fungal rot at waterlogged soil.
+  In Ho Chi Minh City conditions: morning watering preferred, afternoon shade critical.
+
+phases:
+  germination:
+    days: [0, 7]
+    targets:
+      dht11_temp:     [20, 28]
+      dht11_humidity: [65, 85]
+      soil_resistive: [68, 78]
+    notes: >
+      Fast germinator — expect sprouts in 3–5 days.
+      Keep soil consistently moist but never waterlogged.
+      No light required until cotyledons emerge.
+
+  seedling:
+    days: [7, 18]
+    targets:
+      dht11_temp:     [20, 27]
+      dht11_humidity: [60, 80]
+      soil_resistive: [60, 72]
+    notes: >
+      Thin to 10cm spacing at day 10.
+      Begin light exposure (6–8h). Watch for damping off — reduce humidity if soil stays wet.
+      First true leaves appear around day 10–12.
+
+  vegetative:
+    days: [18, 35]
+    targets:
+      dht11_temp:     [18, 28]
+      dht11_humidity: [55, 75]
+      soil_resistive: [55, 68]
+    notes: >
+      Peak growth window. 8–10h light. Leaf size and flavor peak in this phase.
+      If temp exceeds 30°C for >4h/day, harvest earlier rather than waiting — quality
+      degrades faster than growth slows. Reduce watering frequency; allow slight
+      dry-down between cycles to build flavor compounds.
+
+  harvest:
+    days: [35, 999]
+    targets:
+      dht11_temp:     [18, 27]
+      dht11_humidity: [50, 72]
+      soil_resistive: [52, 65]
+    notes: >
+      Harvest outer leaves first; plant regrows from center.
+      Bolting (flower stalk emergence) is irreversible — harvest entire plant immediately
+      if bolt detected. Reduce watering post-harvest to slow regrowth and concentrate flavor.
+      In tropical heat, expect 1–2 regrowth cycles before bolt risk becomes unmanageable.

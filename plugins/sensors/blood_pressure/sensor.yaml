@@ -1,0 +1,38 @@
+id: blood_pressure
+name: Blood Pressure Monitor
+version: 1.0.0
+author: muse-iot-core
+description: >
+  Automatic digital blood pressure monitor (upper arm or wrist cuff).
+  Publishes systolic and diastolic readings separately via MQTT.
+
+topics:
+  - key: blood_pressure_sys
+    name: Systolic blood pressure
+    unit: mmHg
+    mqtt: sensors/blood_pressure_sys
+    range: [60, 260]
+    notes: >
+      Normal: 90–120 mmHg. Elevated: 121–139. Stage 1 hypertension: 130–139.
+      Stage 2: ≥ 140. Hypertensive crisis (seek care immediately): > 180.
+
+  - key: blood_pressure_dia
+    name: Diastolic blood pressure
+    unit: mmHg
+    mqtt: sensors/blood_pressure_dia
+    range: [40, 160]
+    notes: >
+      Normal: 60–80 mmHg. Elevated: 81–89. Stage 1 hypertension: 80–89.
+      Stage 2: ≥ 90.
+
+poll_interval_sec: 86400   # once per day — measure same time each morning
+
+hardware:
+  protocol: mqtt
+  notes: >
+    Measure seated after 5 min rest, same arm, same time of day.
+    Publish systolic and diastolic as separate float topics.
+    Compatible with BLE BP monitors via phone app MQTT bridge.
+
+compatible_devices:
+  - esp32_mqtt
