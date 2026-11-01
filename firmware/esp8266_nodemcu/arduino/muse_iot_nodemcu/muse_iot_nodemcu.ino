@@ -28,10 +28,10 @@
 
 // ── Credentials — fill these in before flashing ──────────────────────────────
 
-const char* WIFI_SSID      = "B04.08";
-const char* WIFI_PASSWORD  = "khongcanbiet";
+const char* WIFI_SSID      = "";
+const char* WIFI_PASSWORD  = "";
 
-const char* MQTT_BROKER    = "192.168.1.3";  // broker IP, or "mqtt" for Docker
+const char* MQTT_BROKER    = "192.168.1.X";  // broker IP, or "mqtt" for Docker
 const int   MQTT_PORT      = 1883;
 const char* MQTT_USERNAME  = "";   // leave empty string if broker has no auth
 const char* MQTT_PASSWORD  = "";
