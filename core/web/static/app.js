@@ -36,7 +36,7 @@ function actuatorIcon(aid) {
 
 // ── State ───────────────────────────────────────────────────────────────────
 const state = {
-  view: 'dashboard',
+  view: 'plantpal',
   status: null,
   profile: null,
   sensors: {},
@@ -1018,6 +1018,13 @@ function renderPlantpal() {
   document.getElementById('mouth').setAttribute('d', face.mouth);
   document.getElementById('tear').classList.toggle('show', face.tear);
   document.getElementById('char').classList.toggle('shiver', face.shiver);
+  // Face placement per stage: nestled small on the sprout, full-size once leafy.
+  const PP_FACE_POS = {
+    0: 'translate(280 202) scale(0.78) translate(-280 -228)',
+    1: 'translate(280 228) scale(0.9) translate(-280 -228)',
+    2: '', 3: '',
+  };
+  document.getElementById('charPos').setAttribute('transform', PP_FACE_POS[stage.idx]);
   document.getElementById('plantDroop').classList.toggle('droop', face.droop);
   const fx = new Set(face.fx);
   if (ppActOn('pump', 'water')) fx.add('fx-water');
@@ -1040,9 +1047,9 @@ function renderPlantpal() {
 }
 async function loadPlantpal() {
   // Face rides above every growth stage (markup nests it in the leafy stage).
-  const char = document.getElementById('char');
-  if (char && char.parentElement && char.parentElement.id === 'grow2') {
-    document.getElementById('grow2').after(char);
+  const pos = document.getElementById('charPos');
+  if (pos && pos.parentElement && pos.parentElement.id === 'grow2') {
+    document.getElementById('grow2').after(pos);
   }
   try {
     const [sensors, status, actuators] = await Promise.all([
@@ -1130,7 +1137,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   } catch (e) { console.error('Sensor metadata failed:', e); }
 
   connectStream();
-  goto('dashboard');
+  goto('plantpal');
 
   setInterval(() => { LOADERS[state.view]().catch(e => console.error('Refresh failed:', e)); }, 120_000);
 });

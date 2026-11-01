@@ -41,12 +41,12 @@
       <span><span class="brand-name">Muse-IoT</span><br><span class="brand-sub" id="brand-box">—</span></span>
     </div>
     <div class="nav-label">Monitor</div>
-    <button class="nav-btn active" data-view="dashboard"><svg class="ic"><use href="#i-grid"/></svg>Dashboard</button>
+    <button class="nav-btn" data-view="dashboard"><svg class="ic"><use href="#i-grid"/></svg>Dashboard</button>
     <button class="nav-btn" data-view="nodes"><svg class="ic"><use href="#i-nodes"/></svg>Nodes<span class="nav-badge" id="nodes-badge" hidden></span></button>
     <button class="nav-btn" data-view="events"><svg class="ic"><use href="#i-pulse"/></svg>Events<span class="nav-badge" id="events-badge" hidden></span></button>
     <div class="nav-label">Grow</div>
     <button class="nav-btn" data-view="profile"><svg class="ic"><use href="#i-sprout"/></svg>Profile</button>
-    <button class="nav-btn" data-view="plantpal"><svg class="ic"><use href="#i-smile"/></svg>PlantPal</button>
+    <button class="nav-btn active" data-view="plantpal"><svg class="ic"><use href="#i-smile"/></svg>PlantPal</button>
     <button class="nav-btn" data-view="readings"><svg class="ic"><use href="#i-clip"/></svg>Readings</button>
     <div class="nav-label">Intelligence</div>
     <button class="nav-btn" data-view="chat"><svg class="ic"><use href="#i-chat"/></svg>Chat</button>
@@ -59,7 +59,7 @@
 
   <div class="main">
     <header class="topbar">
-      <h1 id="view-title">Dashboard</h1>
+      <h1 id="view-title">PlantPal</h1>
       <span class="box-tag" id="domain-tag">—</span>
       <div class="top-right">
         <span class="chip" id="day-chip">Day —</span>
@@ -70,7 +70,7 @@
 
     <main class="content">
       <!-- ══ DASHBOARD ══ -->
-      <section id="view-dashboard" class="view active">
+      <section id="view-dashboard" class="view">
         <div class="status-strip" id="status-strip">
           <div class="stat"><div class="stat-k"><svg class="ic"><use href="#i-pulse"/></svg>Box status</div>
             <div class="stat-v" id="st-health">—</div><div class="stat-s" id="st-health-s">—</div></div>
@@ -141,7 +141,7 @@
       </section>
 
       <!-- ══ PLANTPAL ══ -->
-      <section id="view-plantpal" class="view">
+      <section id="view-plantpal" class="view active">
         <div class="pp-layout">
           <div class="panel pp-stage-panel">
             <div class="panel-title"><svg class="ic"><use href="#i-smile"/></svg><h2>PlantPal</h2>
@@ -150,7 +150,7 @@
               <span class="chip blue" id="pp-growth-badge">—</span>
             </div>
             <div class="stage">
-              <div class="bubble" id="pp-bubble">Waking up…</div>
+              <div class="pp-bubble" id="pp-bubble">Waking up…</div>
               <div class="pp-sensors" id="pp-sensors"></div>
               <svg viewBox="0 0 560 360" role="img" aria-label="PlantPal character">
                 <g class="fx" id="fx-breeze" opacity="0">
@@ -168,7 +168,7 @@
                   <path d="M280 188 c34 -4 52 -22 56 -50 -30 2 -50 20 -56 50z" fill="#43a047"/>
                   <circle cx="272" cy="242" r="9" fill="#ff7043"/><circle cx="289" cy="236" r="9" fill="#ff7043"/><circle cx="280" cy="228" r="4" fill="#5a3a22"/>
                 </g>
-                <g id="grow0" opacity="0"><ellipse cx="280" cy="252" rx="26" ry="13" fill="#a9744f"/><path d="M280 252 c0 -10 6 -16 14 -18" stroke="#7dc383" stroke-width="7" fill="none" stroke-linecap="round"/><circle cx="296" cy="233" r="6" fill="#8fd694"/></g>
+                <g id="grow0" opacity="0"><ellipse cx="280" cy="252" rx="26" ry="13" fill="#a9744f"/><path d="M280 252 C280 236 278 226 280 214" stroke="#4caf50" stroke-width="7" fill="none" stroke-linecap="round"/><ellipse cx="244" cy="212" rx="13" ry="8" fill="#66bb6a" transform="rotate(-24 244 212)"/><ellipse cx="316" cy="210" rx="13" ry="8" fill="#43a047" transform="rotate(24 316 210)"/></g>
                 <g id="grow1" opacity="0">
                   <path d="M280 252 v-46" stroke="#4caf50" stroke-width="8" stroke-linecap="round"/>
                   <path d="M280 222 c-26 -2 -40 -16 -42 -36 24 2 38 14 42 36z" fill="#66bb6a"/>
@@ -183,7 +183,7 @@
                       <path d="M280 216 c-24 -2 -38 -14 -40 -34 22 2 34 12 40 34z" fill="#81c784"/>
                     </g>
                   </g>
-                  <g id="char">
+                  <g id="charPos"><g id="char">
                     <circle cx="280" cy="228" r="34" fill="#fff8ee" stroke="#e8d9bd" stroke-width="3"/>
                     <g id="eyesOpen">
                       <ellipse cx="268" cy="224" rx="5" ry="7" fill="#2b2620"/>
@@ -205,6 +205,7 @@
                       <path d="M322 196 l2 5 5 2 -5 2 -2 5 -2 -5 -5 -2 5 -2z" fill="#ffd166"/>
                       <path d="M280 168 l2.5 6 6 2.5 -6 2.5 -2.5 6 -2.5 -6 -6 -2.5 6 -2.5z" fill="#ffe9a8"/>
                     </g>
+                  </g>
                   </g>
                 </g>
                 <g id="grow3" opacity="0">
