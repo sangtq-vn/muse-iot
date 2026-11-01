@@ -93,3 +93,5 @@ docker-compose.override.yml
 *.tmp
 *.bak
 *.orig
+design/    
+generated_images/
