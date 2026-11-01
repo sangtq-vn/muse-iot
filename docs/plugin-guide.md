@@ -227,6 +227,12 @@ session:
   concept: grow_cycle            # what a "session" means for this domain
   start_event: START_EVENT_NAME
   end_event: END_EVENT_NAME
+
+llm:                             # optional prompt tuning (defaults shown)
+  reason_hint: "one specific sentence"   # shape of the "reason" field
+  observer_role: "IoT systems analyst"   # reflection-engine persona
+  insight_topic: "system-health"          # "Generate 3-5 <topic> insights"
+  analyst_role: "IoT systems expert"     # rootcause-analysis persona
 ```
 
 ### prompts/base.md — LLM instructions for this domain

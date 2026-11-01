@@ -8,7 +8,7 @@ insights every 6 hours. These are stored as REFLECTION events and injected
 into the SYSTEM prompt, where a stable prefix keeps provider-side prompt caching warm.
 
 Cost profile:
-  - 1 extra LLM call per 6h  (360 extra calls/day → negligible vs 1440 polls)
+  - 1 extra LLM call per 6h  (4/day — negligible vs 1440 polls)
   - System prompt stays cache-warm for the full 6h window between reflections
   - Avoids re-serialising 48h of raw history into every USER message
 """
@@ -22,7 +22,7 @@ from .history.ihistory_store import Event
 
 log = logging.getLogger("muse-iot.reflection")
 
-DEFAULT_INTERVAL_SEC = 0.5 * 3600    # run every 6 hours
+DEFAULT_INTERVAL_SEC = 6 * 3600  # run every 6 hours
 LOOKBACK_SEC         = 48 * 3600   # examine last 48 hours of data
 
 # Event types worth surfacing in a reflection
@@ -96,26 +96,33 @@ class ReflectionEngine:
         profile_name = self._profile.get("name", "plant")
         cultivar     = self._profile.get("cultivar", "")
 
+        llm_cfg = getattr(self._domain, "llm", None)
+        llm_cfg = llm_cfg if isinstance(llm_cfg, dict) else {}
+        role  = llm_cfg.get("observer_role", "IoT systems analyst")
+        topic = llm_cfg.get("insight_topic", "system-health")
+        article = "an" if role[:1].lower() in "aeiou" else "a"
+
         system = (
-            f"You are an expert agronomist monitoring {profile_name}"
+            f"You are {article} {role} monitoring {profile_name}"
             + (f" ({cultivar})" if cultivar else "")
             + f" on day {day} of the '{phase}' phase.\n\n"
             f"Phase target ranges:\n{json.dumps(targets, indent=2)}\n\n"
             "Synthesize the provided 48h sensor data, decision log, and events "
-            "into 3-5 concise plant-health insights.\n\n"
+            f"into 3-5 concise {topic} insights.\n\n"
             "Rules:\n"
             "- Reference specific measured values, not vague descriptions.\n"
-            "- Flag trends (e.g. 'soil moisture declining 2%/day for 3 days').\n"
+            "- Flag trends (e.g. 'a key metric drifting steadily for days').\n"
             "- Flag persistent target misses (e.g. 'temp above target 14:00-17:00 daily').\n"
             "- Flag actuator anomalies (no-effect events, duration-limit overrides).\n"
             "- Note what is healthy and stable — not just problems.\n"
             "- Plain text only. No JSON. No markdown headers. 3-5 bullet points."
         )
 
-        # Sensor statistics
-        avg_48h  = self._history.sensor_avg(box_id, window=LOOKBACK_SEC)
-        mm_48h   = self._history.sensor_minmax(box_id, window=LOOKBACK_SEC)
-        trend_7d = self._history.sensor_trend(box_id, window=604_800)
+        # Sensor statistics (bare sensor ids only — no node_* or *_min/*_max keys)
+        bare = {s["id"] for s in self._domain.sensors} if self._domain else None
+        avg_48h  = self._bare_only(self._history.sensor_avg(box_id, window=LOOKBACK_SEC), bare)
+        mm_48h   = self._bare_only(self._history.sensor_minmax(box_id, window=LOOKBACK_SEC), bare)
+        trend_7d = self._bare_only(self._history.sensor_trend(box_id, window=604_800), bare)
 
         # Significant events from the last 48h
         all_events = self._history.events(box_id, since=since)
@@ -148,12 +155,18 @@ class ReflectionEngine:
             f"{json.dumps(sig_events, indent=2)}\n\n"
             f"Last 10 LLM decisions:\n"
             f"{json.dumps(decision_summary, indent=2)}\n\n"
-            "Generate 3-5 plant-health insights based on this data."
+            f"Generate 3-5 {topic} insights based on this data."
         )
 
         return {"system": system, "user": user}
 
     # ── Helpers ───────────────────────────────────────────────────────────────
+
+    @staticmethod
+    def _bare_only(stats: dict, bare: set | None) -> dict:
+        if bare is None:
+            return stats
+        return {k: v for k, v in stats.items() if k in bare}
 
     def _last_reflection_ts(self) -> float | None:
         events = self._history.events(self._session.box_id, type="REFLECTION")

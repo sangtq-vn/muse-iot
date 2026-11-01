@@ -11,7 +11,6 @@ import json
 import logging
 import time
 from datetime import datetime
-from itertools import groupby
 
 from .history.ihistory_store import IHistoryStore, Event
 from .llm.llm_adapter import LLMAdapter
@@ -21,9 +20,10 @@ log = logging.getLogger("muse-iot.rootcause")
 
 class RootcauseAnalyzer:
 
-    def __init__(self, history: IHistoryStore, llm: LLMAdapter):
+    def __init__(self, history: IHistoryStore, llm: LLMAdapter, domain=None):
         self.history = history
         self.llm     = llm
+        self.domain  = domain  # optional domain plugin (framing + sensor ids)
 
     def analyze(self, box_id: str, session_id: str) -> dict:
         """
@@ -31,32 +31,51 @@ class RootcauseAnalyzer:
         Returns structured diagnosis dict.
         """
         log.info(f"Starting rootcause analysis for session {session_id}")
+        now = time.time()
 
-        # 1. Pull sensor statistics for full session duration
-        stats = self.history.sensor_minmax(box_id, window=999_999_999)
-        avgs  = self.history.sensor_avg(box_id, window=999_999_999)
-        trend = self.history.sensor_trend(box_id, window=999_999_999)
+        # Session time range — scope everything below to THIS session,
+        # not the box's full history across sessions.
+        start_ts, end_ts = self._session_range(box_id, session_id, now)
 
-        # 2. All events — anomalies, overrides, observations, actuations
-        events = self.history.events(box_id)
+        # 1. Sensor statistics for the session window
+        window = max(int(now - start_ts), 60)
+        stats = self._bare_only(self.history.sensor_minmax(box_id, window=window))
+        avgs  = self._bare_only(self.history.sensor_avg(box_id, window=window))
+        trend = self._bare_only(self.history.sensor_trend(box_id, window=window))
+
+        # 2. Session events — anomalies, overrides, observations, actuations
+        events = [e for e in self.history.events(box_id)
+                  if start_ts <= e.ts <= end_ts]
         anomalies   = [e for e in events if e.type == "SENSOR_ANOMALY"]
         overrides   = [e for e in events if e.type == "SAFETY_OVERRIDE"]
         observations= [e for e in events if e.type == "OBSERVATION"]
         errors      = [e for e in events if e.severity == "critical"]
 
-        # 3. Last 20 LLM decisions before session end
-        decisions = self.history.llm_decisions(box_id, limit=20)
+        # 3. Last 20 LLM decisions within the session
+        decisions = [d for d in self.history.llm_decisions(box_id, limit=200)
+                     if start_ts <= d.ts <= end_ts][:20]
 
-        # 4. Build post-mortem prompt
-        prompt_system = """You are a plant pathologist and IoT systems expert.
-You are analyzing a completed grow session to identify root causes of failure or success.
-Be specific, quantitative, and actionable. 
-Respond ONLY in valid JSON."""
+        # 4. Build post-mortem prompt (domain-aware framing)
+        llm_cfg = getattr(self.domain, "llm", None)
+        llm_cfg = llm_cfg if isinstance(llm_cfg, dict) else {}
+        role = llm_cfg.get("analyst_role", "IoT systems expert")
+        article = "an" if role[:1].lower() in "aeiou" else "a"
+        sess_cfg = getattr(self.domain, "session", None)
+        noun = (sess_cfg.get("concept", "session").replace("_", " ")
+                if isinstance(sess_cfg, dict) else "session")
+
+        prompt_system = (
+            f"You are {article} {role}.\n"
+            f"You are analyzing a completed {noun} to identify root causes "
+            f"of failure or success.\n"
+            "Be specific, quantitative, and actionable.\n"
+            "Respond ONLY in valid JSON."
+        )
 
         prompt_user = f"""
-GROW SESSION ANALYSIS REQUEST
+{noun.upper()} ANALYSIS REQUEST
 
-Sensor statistics (full session):
+Sensor statistics (this session):
 {json.dumps({"averages": avgs, "ranges": stats, "trends": trend}, indent=2)}
 
 Anomaly events ({len(anomalies)} total):
@@ -71,7 +90,7 @@ Critical errors ({len(errors)} total):
 User observations:
 {self._format_events(observations)}
 
-Last 20 LLM decisions:
+Last 20 LLM decisions this session:
 {self._format_decisions(decisions)}
 
 Provide diagnosis as JSON:
@@ -84,7 +103,7 @@ Provide diagnosis as JSON:
   "llm_decision_quality": "assessment of whether LLM decisions were appropriate",
   "safety_engine_notes": "were safety overrides appropriate or too aggressive?",
   "recommendations": [
-    "specific actionable change for next grow"
+    "specific actionable change for the next {noun}"
   ],
   "confidence": "high|medium|low",
   "overall_assessment": "2-3 sentence summary"
@@ -110,6 +129,30 @@ Provide diagnosis as JSON:
 
         log.info(f"Rootcause analysis complete: {diagnosis.get('primary_cause')}")
         return diagnosis
+
+    def _session_range(self, box_id: str, session_id: str, now: float) -> tuple:
+        """(start_ts, end_ts) for the session; falls back to all history."""
+        if hasattr(self.history, "conn"):
+            try:
+                row = self.history.conn.execute(
+                    "SELECT started_at, ended_at FROM sessions WHERE id=? AND box_id=?",
+                    (session_id, box_id),
+                ).fetchone()
+            except Exception as e:
+                log.warning(f"Could not load session {session_id}: {e}")
+                row = None
+            if row:
+                return (row["started_at"] or 0, row["ended_at"] or now)
+            log.warning(f"Session {session_id} not found — analyzing full history")
+        return (0, now)
+
+    def _bare_only(self, stats: dict) -> dict:
+        """Drop aggregate/per-node keys. Without a domain, drop *_min/*_max only."""
+        if self.domain is not None:
+            bare = {s["id"] for s in self.domain.sensors}
+            return {k: v for k, v in stats.items() if k in bare}
+        return {k: v for k, v in stats.items()
+                if not k.endswith(("_min", "_max"))}
 
     def _format_events(self, events: list) -> str:
         if not events:

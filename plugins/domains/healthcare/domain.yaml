@@ -76,6 +76,13 @@ safety:
 poll:
   interval_sec: 86400   # once per day — health decisions are daily, not per-minute
 
+# ── LLM prompt tuning ──────────────────────────────────────────────────────
+llm:
+  reason_hint: "2-4 warm, specific, plain-language sentences"
+  observer_role: "preventive health analyst"
+  insight_topic: "health"
+  analyst_role: "health data reviewer"
+
 actuator_limits:
   # No physical duration limits needed — these are notification flags
   alert_urgent:   {}

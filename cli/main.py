@@ -88,13 +88,17 @@ def cmd_status(args):
 def cmd_analyze(args):
     from core.history.backends.sqlite_backend import SQLiteHistoryStore
     from core.llm.llm_adapter import LLMAdapter
+    from core.plugin_loader import PluginLoader
     from core.rootcause_analyzer import RootcauseAnalyzer
 
     config = _load_config(args.config)
     box_id = config["box_id"]
     history = SQLiteHistoryStore(box_id)
     llm     = LLMAdapter(config.get("llm", {}))
-    analyzer = RootcauseAnalyzer(history, llm)
+    loader  = PluginLoader()
+    loader.load_all()
+    domain  = loader.domains.get(config.get("domain"))
+    analyzer = RootcauseAnalyzer(history, llm, domain=domain)
 
     print(f"Running rootcause analysis for session: {args.session_id}")
     result = analyzer.analyze(box_id, args.session_id)

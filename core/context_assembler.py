@@ -77,27 +77,32 @@ class ContextAssembler:
         )
         parts.append(f"ACTUATORS:\n{actuator_lines}")
 
-        # 4. Safety rules — always in system, never trimmed
+        # 4. Safety rules — always in system, never trimmed, highest precedence
         safety_lines = "\n".join(
             f"  RULE: {r}" for r in self.domain.safety
         )
         parts.append(
-            f"SAFETY RULES — NEVER VIOLATE THESE:\n{safety_lines}"
+            "SAFETY RULES — HARD CONSTRAINTS, NEVER VIOLATE THESE:\n"
+            f"{safety_lines}\n"
+            "Precedence: safety rules override everything (a separate engine blocks "
+            "violating commands, so comply with them directly) — then your expertise "
+            "— then the advisory ranges in SESSION STATE."
         )
 
-        # 5. Output schema — type-aware per actuator
+        # 5. Output schema — type-aware per actuator, JSON-safe placeholders only
         def _actuator_schema(aid: str) -> str:
             if aid.startswith("pwm_"):
-                return f'  "{aid}": <integer 0-100>   // PWM duty cycle percent'
+                return f'  "{aid}": <integer 0-100>'
             return f'  "{aid}": "on" | "off"'
 
-        schema_fields = "\n".join(
+        schema_fields = ",\n".join(
             _actuator_schema(a["id"]) for a in self.domain.actuators
         )
+        reason_hint = self._llm_cfg().get("reason_hint", "one specific sentence")
         parts.append(
-            f'Respond ONLY in valid JSON — no text outside the object.\n'
-            f'ALL fields are REQUIRED every response — include every actuator even if unchanged:\n'
-            f'{{\n{schema_fields},\n  "reason": "<one specific sentence>"\n}}'
+            "Respond ONLY in valid JSON — no text outside the object.\n"
+            "ALL fields are REQUIRED every response — include every actuator even if unchanged.\n"
+            f"{{\n{schema_fields},\n  \"reason\": \"<{reason_hint}>\"\n}}"
         )
 
         # 6. prompt.md — domain author's custom instructions
@@ -120,15 +125,25 @@ class ContextAssembler:
 
         # 2a. Live sensor snapshot
         snapshot = self._read_sensors()
-        parts.append(
-            f"CURRENT SENSORS (live at {datetime.now().strftime('%H:%M:%S')}):\n"
-            f"{json.dumps(snapshot, indent=2)}"
-        )
+        snap_block = [
+            f"CURRENT SENSORS (live at {datetime.now().strftime('%H:%M:%S')}):",
+            json.dumps(snapshot, indent=2),
+        ]
+        units = {s["id"]: s["unit"] for s in self.domain.sensors if s.get("unit")}
+        if units:
+            snap_block.append(f"UNITS: {json.dumps(units)}")
+        if any(v is None for v in snapshot.values()):
+            snap_block.append(
+                "Note: null = that sensor read failed right now (not zero). "
+                "Decide from history/trends and say so in reason."
+            )
+        parts.append("\n".join(snap_block))
 
-        # 2b. Three history horizons
-        h2h  = self.history.sensor_avg(self.session.box_id, window=7_200)
-        h24h = self.history.sensor_minmax(self.session.box_id, window=86_400)
-        h7d  = self.history.sensor_trend(self.session.box_id, window=604_800)
+        # 2b. Three history horizons (bare sensor ids only)
+        bare = self._bare_ids()
+        h2h  = {k: v for k, v in self.history.sensor_avg(self.session.box_id, window=7_200).items() if k in bare}
+        h24h = {k: v for k, v in self.history.sensor_minmax(self.session.box_id, window=86_400).items() if k in bare}
+        h7d  = {k: v for k, v in self.history.sensor_trend(self.session.box_id, window=604_800).items() if k in bare}
 
         history_block = (
             f"HISTORY:\n"
@@ -162,11 +177,12 @@ class ContextAssembler:
             ]
             parts.append("LAST 5 DECISIONS:\n" + "\n".join(lines))
 
-        # 2e. Session state — targets are advisory, not hard rules
+        # 2e. Session state — targets are advisory (weakest signal), not hard rules
         targets = self.session.current_phase_targets()
         parts.append(
             f"SESSION STATE:\n"
-            f"  Advisory ranges (use judgment): {json.dumps(targets)}\n"
+            f"  Phase         : {self.session.current_phase()} (day {self.session.day_number()})\n"
+            f"  Advisory ranges (weakest signal — safety rules and your expertise take precedence): {json.dumps(targets)}\n"
             f"  Time now      : {datetime.now().strftime('%H:%M')} "
             f"{datetime.now().strftime('%A')}\n"
             f"  Last actuations: {json.dumps(self.session.last_actuation_times())}"
@@ -181,6 +197,15 @@ class ContextAssembler:
         return self._trim_to_budget("\n\n".join(parts))
 
     # ── Helpers ──────────────────────────────────────────────────────────
+
+    def _llm_cfg(self) -> dict:
+        """Optional per-domain prompt tuning from domain.yaml `llm:` block."""
+        cfg = getattr(self.domain, "llm", None)
+        return cfg if isinstance(cfg, dict) else {}
+
+    def _bare_ids(self) -> set:
+        """Bare sensor ids for this domain — excludes node_* and *_min/*_max keys."""
+        return {s["id"] for s in self.domain.sensors}
 
     def _read_sensors(self) -> dict:
         snapshot = {}
@@ -209,23 +234,46 @@ class ContextAssembler:
         return "\n".join(lines[-3:]) if lines else None
 
     def _trim_to_budget(self, text: str) -> str:
-        """Gracefully trim to token budget: drop 7d first, then 24h, keep live always."""
+        """Gracefully trim to token budget: drop 7d first, then 24h, keep live always.
+
+        Whatever is dropped is named in a marker line, so the model can tell
+        "trimmed" apart from "none".
+        """
         if estimate_tokens(text) <= TOKEN_BUDGET:
             return text
+
+        dropped = []
+        # Reserve room for the trim marker so the final text still fits.
+        limit = TOKEN_BUDGET - 25
 
         # Drop 7d trend
-        text = re.sub(r"  7d trend\s*:.*?\n", "", text)
-        if estimate_tokens(text) <= TOKEN_BUDGET:
+        new = re.sub(r"  7d trend\s*:.*?\n", "", text)
+        if new != text:
+            dropped.append("7d trend")
+            text = new
+        if estimate_tokens(text) <= limit:
             log.debug("Context trimmed: dropped 7d trend")
-            return text
+            return text + self._trim_marker(dropped)
 
         # Drop 24h range
-        text = re.sub(r"  24h range\s*:.*?\n", "", text)
-        if estimate_tokens(text) <= TOKEN_BUDGET:
+        new = re.sub(r"  24h range\s*:.*?\n", "", text)
+        if new != text:
+            dropped.append("24h range")
+            text = new
+        if estimate_tokens(text) <= limit:
             log.debug("Context trimmed: dropped 24h range")
-            return text
+            return text + self._trim_marker(dropped)
 
         # Drop anomalies section
-        text = re.sub(r"RECENT ANOMALIES:.*?\n\n", "", text, flags=re.DOTALL)
+        new = re.sub(r"RECENT ANOMALIES:.*?\n\n", "", text, flags=re.DOTALL)
+        if new != text:
+            dropped.append("recent anomalies")
+            text = new
         log.warning("Context heavily trimmed — consider reducing poll frequency")
-        return text
+        return text + self._trim_marker(dropped)
+
+    @staticmethod
+    def _trim_marker(dropped: list) -> str:
+        if not dropped:
+            return ""
+        return f"\n\n[context trimmed for length — dropped: {', '.join(dropped)}]"

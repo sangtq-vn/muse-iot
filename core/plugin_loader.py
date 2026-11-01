@@ -74,6 +74,8 @@ class DomainPlugin:
     prompt_template_path: Path
     profiles_dir: Path
     plugin_dir: Path
+    llm: dict = field(default_factory=dict)  # optional prompt tuning:
+    # reason_hint, observer_role, insight_topic, analyst_role
 
 @dataclass
 class HistoryBackendPlugin:
@@ -229,6 +231,7 @@ class PluginLoader:
                     safety=data["safety"],
                     session=data.get("session", {}),
                     actuator_limits=data.get("actuator_limits", {}),
+                    llm=data.get("llm", {}),
                     prompt_template_path=prompt_path,
                     profiles_dir=profiles_dir,
                     plugin_dir=manifest.parent,

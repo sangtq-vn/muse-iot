@@ -53,6 +53,13 @@ safety:
   - "relay_fan ON (forced) if dht11_temp > 32"
   - "pwm_light OFF between 18:00 and 06:00"
 
+# ── LLM prompt tuning (all optional, these are the defaults) ────────────────
+llm:
+  reason_hint: "one specific sentence"
+  observer_role: "expert agronomist"
+  insight_topic: "plant-health"
+  analyst_role: "plant pathologist and IoT systems expert"
+
 session:
   concept: grow_cycle
   start_event: PLANT_ADDED

@@ -161,8 +161,10 @@ class TestTokenTrimming:
     def test_trim_drops_7d_first(self, mock_domain, mock_session, mock_device):
         """When over budget, 7d trend should be dropped before 24h range."""
         history = MagicMock()
-        # Return huge history to trigger trimming
+        # Return huge history to trigger trimming (keys must be domain-known
+        # to survive bare-id filtering)
         huge = {f"sensor_{i}": i for i in range(50)}
+        mock_domain.sensors = [{"id": k} for k in huge]
         history.sensor_avg.return_value = huge
         history.sensor_minmax.return_value = {k: {"min": 0, "max": 100} for k in huge}
         history.sensor_trend.return_value = {k: 0.5 for k in huge}
@@ -173,3 +175,95 @@ class TestTokenTrimming:
         ctx = assembler.build()
         # Should not crash and should stay within budget
         assert estimate_tokens(ctx["user"]) <= TOKEN_BUDGET
+
+    def test_trim_order_and_marker(self, assembler):
+        """Direct trim check: 7d goes first, 24h survives, marker names the drop."""
+        pad = "x" * (TOKEN_BUDGET * 4)
+        text = (
+            "CURRENT SENSORS (live): {}\n\n"
+            "HISTORY:\n"
+            "  2h avg    : {}\n"
+            "  24h range : {}\n"
+            f"  7d trend  : {{{pad}}}\n\n"
+            "SESSION STATE:\n  ok"
+        )
+        out = assembler._trim_to_budget(text)
+        assert "  7d trend" not in out
+        assert "24h range" in out
+        assert "dropped: 7d trend" in out
+        assert estimate_tokens(out) <= TOKEN_BUDGET
+
+    def test_no_trim_no_marker(self, assembler):
+        assert "trimmed for length" not in assembler._trim_to_budget("short text")
+
+
+class TestPromptFixes:
+
+    def test_history_filters_to_bare_ids(self, mock_domain, mock_session, mock_device):
+        """node_* and *_min/*_max keys must not reach the poll prompt."""
+        history = MagicMock()
+        history.sensor_avg.return_value = {
+            "sht31_temp": 28.5, "soil_cap": 58.2,
+            "node_left_sht31_temp": 29.0, "sht31_temp_min": 20.0, "soil_cap_max": 68.0,
+        }
+        history.sensor_minmax.return_value = {
+            "sht31_temp": {"min": 22.1, "max": 31.5},
+            "node_right_soil_cap": {"min": 1, "max": 2},
+        }
+        history.sensor_trend.return_value = {"soil_cap": -2.1, "soil_cap_min": 0.0}
+        history.events.return_value = []
+        history.llm_decisions.return_value = []
+
+        assembler = ContextAssembler(mock_domain, mock_session, history, mock_device)
+        user = assembler.build()["user"]
+        assert "node_left_sht31_temp" not in user
+        assert "node_right_soil_cap" not in user
+        assert "sht31_temp_min" not in user
+        assert "soil_cap_max" not in user
+        assert "28.5" in user and "58.2" in user
+
+    def test_null_sensor_read_explained(self, mock_domain, mock_session, mock_history):
+        """A failed read renders null plus guidance — never a silent zero."""
+        device = MagicMock()
+
+        def fake_read(sid):
+            if sid == "soil_cap":
+                raise RuntimeError("I2C timeout")
+            return 29.4
+
+        device.read.side_effect = fake_read
+        assembler = ContextAssembler(mock_domain, mock_session, mock_history, device)
+        user = assembler.build()["user"]
+        assert '"soil_cap": null' in user
+        assert "not zero" in user
+
+    def test_no_null_note_when_all_read(self, assembler):
+        assert "read failed right now" not in assembler.build()["user"]
+
+    def test_units_line_from_domain_sensors(self, mock_domain, mock_session,
+                                            mock_history, mock_device):
+        mock_domain.sensors = [
+            {"id": "sht31_temp", "unit": "celsius"},
+            {"id": "soil_cap", "unit": "percent"},
+        ]
+        assembler = ContextAssembler(mock_domain, mock_session, mock_history, mock_device)
+        user = assembler.build()["user"]
+        assert "UNITS:" in user
+        assert '"sht31_temp": "celsius"' in user
+
+    def test_reason_hint_defaults_to_one_sentence(self, assembler):
+        assert '"reason": "<one specific sentence>"' in assembler.build()["system"]
+
+    def test_reason_hint_override_from_domain(self, mock_domain, mock_session,
+                                             mock_history, mock_device):
+        mock_domain.llm = {"reason_hint": "2-4 warm sentences"}
+        assembler = ContextAssembler(mock_domain, mock_session, mock_history, mock_device)
+        assert '"reason": "<2-4 warm sentences>"' in assembler.build()["system"]
+
+    def test_schema_has_no_comment_tokens(self, assembler):
+        assert "//" not in assembler.build()["system"]
+
+    def test_safety_precedence_chain(self, assembler):
+        system = assembler.build()["system"]
+        assert "NEVER VIOLATE" in system
+        assert "Precedence" in system

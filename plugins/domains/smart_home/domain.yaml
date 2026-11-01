@@ -60,6 +60,13 @@ safety:
   - "ac_unit OFF if temp_indoor < 20"
   - "smart_lights OFF if motion_living < 1 for 30min"
 
+# ── LLM prompt tuning ──────────────────────────────────────────────────────
+llm:
+  reason_hint: "one specific sentence"
+  observer_role: "building systems analyst"
+  insight_topic: "home comfort and energy"
+  analyst_role: "building systems analyst"
+
 session:
   concept: occupancy_period
   start_event: MOTION_DETECTED
