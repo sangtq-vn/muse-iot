@@ -61,6 +61,8 @@ llm:
   model: muse-spark-1.3
   api_key: YOUR_META_API_KEY
   # base_url: https://api.meta.ai/v1   # optional override
+  # max_tokens: 4096   # output budget (reasoning models need headroom; auto-escalates to 16384)
+  # reasoning_effort: low   # optional: throttle reasoning to cut cost/latency
   call_interval_sec: 120
 
 # ── History storage ───────────────────────────────────────────────────────

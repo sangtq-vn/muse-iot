@@ -13,6 +13,8 @@ Config (from config.yaml):
     model: muse-spark-1.3              # Muse Spark model id
     api_key: LLM|...                   # or META_API_KEY env var
     base_url: https://api.meta.ai/v1   # optional override
+    max_tokens: 4096                   # output budget (auto-escalates to 16384)
+    reasoning_effort: low              # optional throttle, sent only if set
     call_interval_sec: 120
 """
 
@@ -29,9 +31,16 @@ log = logging.getLogger("muse-iot.llm_adapter")
 PROVIDER = "muse"
 DEFAULT_MODEL = "muse-spark-1.3"
 DEFAULT_BASE_URL = "https://api.meta.ai/v1"
+DEFAULT_MAX_TOKENS = 4096  # reasoning models burn budget thinking — 1024 starves output
+MAX_BUDGET = 16384         # ceiling for automatic budget escalation
+BUDGET_ESCALATIONS = 3     # attempts per call before giving up on length cutoffs
 
 MAX_RETRIES = 3
 RETRY_DELAY = 5   # seconds
+
+
+class LLMOutputCutoffError(ValueError):
+    """Model hit max_tokens before producing output (finish_reason=length)."""
 
 
 @dataclass
@@ -57,7 +66,9 @@ class LLMAdapter:
         self.model    = config.get("model", DEFAULT_MODEL)
         self.api_key  = config.get("api_key") or self._get_env_key()
         self.base_url = (config.get("base_url") or DEFAULT_BASE_URL).rstrip("/")
-        self.max_tokens = config.get("max_tokens", 1024)
+        self.max_tokens = config.get("max_tokens", DEFAULT_MAX_TOKENS)
+        # Optional reasoning throttle (e.g. "low") — only sent when configured.
+        self.reasoning_effort = config.get("reasoning_effort")
 
     def call_freetext(self, context: dict) -> str:
         """Call Muse without JSON constraints — returns raw text. Used by ReflectionEngine."""
@@ -65,6 +76,8 @@ class LLMAdapter:
         for attempt in range(MAX_RETRIES):
             try:
                 return self._call_freetext_once(context)
+            except LLMOutputCutoffError:
+                raise  # budget already escalated inside — retrying is pure burn
             except Exception as e:
                 last_exc = e
                 if "429" in str(e):
@@ -98,6 +111,8 @@ class LLMAdapter:
                     "user": context["user"] + JSON_REMINDER,
                 }
                 return self._call_once(ctx)
+            except LLMOutputCutoffError:
+                raise  # budget already escalated inside — retrying is pure burn
             except Exception as e:
                 last_exc = e
                 if "429" in str(e):
@@ -135,33 +150,62 @@ class LLMAdapter:
                 "Missing Muse API key — set llm.api_key in config.yaml "
                 "or the META_API_KEY environment variable."
             )
-        body: dict = {
-            "model": self.model,
-            "max_tokens": self.max_tokens,
-            "messages": [
-                {"role": "system", "content": context["system"]},
-                {"role": "user",   "content": context["user"]},
-            ],
-        }
-        if json_mode:
-            body["response_format"] = {"type": "json_object"}
-        resp = requests.post(
-            f"{self.base_url}/chat/completions",
-            headers={"Authorization": f"Bearer {self.api_key}"},
-            json=body,
-            timeout=120,
-        )
-        resp.raise_for_status()
-        data = resp.json()
+        # Reasoning models can spend the whole budget thinking and hit
+        # max_tokens with zero output tokens (finish_reason=length).
+        # Escalate the budget a few times before giving up.
+        budget = self.max_tokens
+        for _ in range(BUDGET_ESCALATIONS):
+            body: dict = {
+                "model": self.model,
+                "max_tokens": budget,
+                "messages": [
+                    {"role": "system", "content": context["system"]},
+                    {"role": "user",   "content": context["user"]},
+                ],
+            }
+            if json_mode:
+                body["response_format"] = {"type": "json_object"}
+            if self.reasoning_effort:
+                body["reasoning_effort"] = self.reasoning_effort
+            resp = requests.post(
+                f"{self.base_url}/chat/completions",
+                headers={"Authorization": f"Bearer {self.api_key}"},
+                json=body,
+                timeout=120,
+            )
+            resp.raise_for_status()
+            data = resp.json()
 
-        choices = data.get("choices", [])
-        if not choices or not choices[0].get("message", {}).get("content"):
+            choices = data.get("choices", [])
+            msg = (choices[0].get("message") or {}) if choices else {}
+            text = msg.get("content") or ""
+            finish = choices[0].get("finish_reason") if choices else None
+            usage = data.get("usage", {}) or {}
+            tokens = usage.get("total_tokens", 0)
+            reasoning = (usage.get("completion_tokens_details", {}) or {}).get("reasoning_tokens", 0)
+
+            if text:
+                log.debug(f"Muse raw response: {text[:300]}")
+                return text, tokens
+            if finish == "length" and budget < MAX_BUDGET:
+                new_budget = min(budget * 2, MAX_BUDGET)
+                log.warning(
+                    f"Muse hit max_tokens={budget} with no output "
+                    f"(reasoning used ~{reasoning} tokens) — retrying with {new_budget}"
+                )
+                budget = new_budget
+                continue
+            if finish == "length":
+                raise LLMOutputCutoffError(
+                    f"Muse returned no content: output cut off at max_tokens={budget} "
+                    f"(finish_reason=length, reasoning used ~{reasoning} tokens). "
+                    f"Raise llm.max_tokens in config.yaml (ceiling {MAX_BUDGET}) "
+                    f"or set llm.reasoning_effort: low."
+                )
             raise ValueError(f"Muse returned no content. Full response: {data}")
-
-        text = choices[0]["message"]["content"]
-        tokens = data.get("usage", {}).get("total_tokens", 0)
-        log.debug(f"Muse raw response: {text[:300]}")
-        return text, tokens
+        raise LLMOutputCutoffError(  # unreachable — loop always returns or raises
+            f"Muse returned no content after {BUDGET_ESCALATIONS} budget escalations."
+        )
 
     # ── JSON parsing ──────────────────────────────────────────────────────
 
