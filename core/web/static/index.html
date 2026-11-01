@@ -7,109 +7,226 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.5"/></symbol>
+<symbol id="i-sprout" viewBox="0 0 24 24"><path d="M12 21v-8"/><path d="M12 13c0-4 3-7 8-7 0 4-3 7-8 7z"/><path d="M12 13c0-3-2.5-5-6-5 0 3 2.5 5 6 5z"/><path d="M7 21h10"/></symbol>
+<symbol id="i-chat" viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-8 8H4l2-3a8 8 0 1 1 15-5z"/><circle cx="9" cy="12" r=".5"/><circle cx="13" cy="12" r=".5"/><circle cx="17" cy="12" r=".5"/></symbol>
+<symbol id="i-chip" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 1v4M15 1v4M9 19v4M15 19v4M1 9h4M1 15h4M19 9h4M19 15h4"/></symbol>
+<symbol id="i-pulse" viewBox="0 0 24 24"><path d="M2 12h4l3-8 4 16 3-8h6"/></symbol>
+<symbol id="i-clip" viewBox="0 0 24 24"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4a3 3 0 0 1 6 0"/><path d="M9 11h6M9 15h4"/></symbol>
+<symbol id="i-nodes" viewBox="0 0 24 24"><rect x="2" y="9" width="7" height="7" rx="1.5"/><rect x="15" y="2" width="7" height="7" rx="1.5"/><rect x="15" y="15" width="7" height="7" rx="1.5"/><path d="M9 11.5l6-4M9 13.5l6 4"/></symbol>
+<symbol id="i-therm" viewBox="0 0 24 24"><path d="M10 4a2 2 0 0 1 4 0v9.3a4.5 4.5 0 1 1-4 0z"/><circle cx="12" cy="17.5" r="1.6"/></symbol>
+<symbol id="i-drop" viewBox="0 0 24 24"><path d="M12 3s6 6.3 6 11a6 6 0 0 1-12 0c0-4.7 6-11 6-11z"/></symbol>
+<symbol id="i-leaf" viewBox="0 0 24 24"><path d="M5 19C5 9 12 4 20 4c0 8-5 15-15 15z"/><path d="M5 19c3-5 7-9 11-11"/></symbol>
+<symbol id="i-fan" viewBox="0 0 24 24"><circle cx="12" cy="12" r="1.6"/><path d="M12 10.4C10 7 10 3.5 12 2c2 1.5 2 5 0 8.4zM13.4 12c3.4-2 6.9-2 8.5 0-1.6 2-5.1 2-8.5 0zM12 13.6c2 3.4 2 6.9 0 8.5-2-1.6-2-5.1 0-8.5zM10.6 12C7.2 14 3.7 14 2 12c1.7-2 5.2-2 8.6 0z"/></symbol>
+<symbol id="i-plug" viewBox="0 0 24 24"><path d="M9 2v6M15 2v6M6 8h12v4a6 6 0 0 1-12 0zM12 18v4"/></symbol>
+<symbol id="i-bulb" viewBox="0 0 24 24"><path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 1 3.5 10.9c-.8.6-1.5 1.4-1.5 2.6H10c0-1.2-.7-2-1.5-2.6A6 6 0 0 1 12 3z"/></symbol>
+<symbol id="i-check" viewBox="0 0 24 24"><path d="M4 12.5l5 5L20 6.5"/></symbol>
+<symbol id="i-warn" viewBox="0 0 24 24"><path d="M12 3L2 20h20z"/><path d="M12 10v4M12 17.5v.5"/></symbol>
+<symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5V8"/></symbol>
+<symbol id="i-x" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9 9l6 6M15 9l-6 6"/></symbol>
+<symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></symbol>
+<symbol id="i-up" viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></symbol>
+<symbol id="i-down" viewBox="0 0 24 24"><path d="M12 5v14M5 12l7 7 7-7"/></symbol>
+<symbol id="i-send" viewBox="0 0 24 24"><path d="M21 3L10 14M21 3l-7 18-4-7-9-4z"/></symbol>
+<symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></symbol>
+<symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 2l8 3v6c0 5-3.5 9-8 11-4.5-2-8-6-8-11V5z"/><path d="M9 12l2 2 4-4"/></symbol>
+</defs></svg>
 
-  <header class="app-header">
-    <div class="header-brand">
-      <span class="logo">🌱</span>
-      <span class="app-name">Muse-IoT</span>
-      <span class="header-sep">·</span>
-      <span id="box-id" class="box-id">—</span>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <span class="brand-mark"><svg class="ic"><use href="#i-sprout"/></svg></span>
+      <span><span class="brand-name">Muse-IoT</span><br><span class="brand-sub" id="brand-box">—</span></span>
     </div>
-    <div class="header-meta">
-      <span id="day-badge" class="pill pill-day">Day —</span>
-      <span id="phase-badge" class="pill pill-phase">—</span>
-      <span id="conn-dot" class="conn-dot" title="Connecting…">●</span>
+    <div class="nav-label">Monitor</div>
+    <button class="nav-btn active" data-view="dashboard"><svg class="ic"><use href="#i-grid"/></svg>Dashboard</button>
+    <button class="nav-btn" data-view="nodes"><svg class="ic"><use href="#i-nodes"/></svg>Nodes<span class="nav-badge" id="nodes-badge" hidden></span></button>
+    <button class="nav-btn" data-view="events"><svg class="ic"><use href="#i-pulse"/></svg>Events<span class="nav-badge" id="events-badge" hidden></span></button>
+    <div class="nav-label">Grow</div>
+    <button class="nav-btn" data-view="profile"><svg class="ic"><use href="#i-sprout"/></svg>Profile</button>
+    <button class="nav-btn" data-view="readings"><svg class="ic"><use href="#i-clip"/></svg>Readings</button>
+    <div class="nav-label">Intelligence</div>
+    <button class="nav-btn" data-view="chat"><svg class="ic"><use href="#i-chat"/></svg>Chat</button>
+    <button class="nav-btn" data-view="decisions"><svg class="ic"><use href="#i-chip"/></svg>Decisions</button>
+    <div class="side-foot">
+      <div class="conn"><span class="live-dot" id="conn-dot"></span><span id="conn-label">Connecting…</span></div>
+      <div class="side-note" id="poll-note">Poll loop status unknown.</div>
     </div>
-  </header>
+  </aside>
 
-  <nav class="tab-nav">
-    <button class="tab-btn active" data-tab="dashboard">Dashboard</button>
-    <button class="tab-btn" data-tab="profile">Profile</button>
-    <button class="tab-btn" data-tab="chat">Chat</button>
-    <button class="tab-btn" data-tab="decisions">Decisions</button>
-    <button class="tab-btn" data-tab="events">Events</button>
-    <button class="tab-btn" data-tab="readings">Readings</button>
-  </nav>
-
-  <main class="content">
-
-    <!-- ── Dashboard ───────────────────────────────────────────────────── -->
-    <div id="tab-dashboard" class="tab-pane active">
-
-      <div id="profile-panel" class="card profile-panel">
-        <div class="skeleton-block"></div>
+  <div class="main">
+    <header class="topbar">
+      <h1 id="view-title">Dashboard</h1>
+      <span class="box-tag" id="domain-tag">—</span>
+      <div class="top-right">
+        <span class="chip" id="day-chip">Day —</span>
+        <span class="chip green" id="phase-chip">—</span>
+        <span class="chip blue" id="model-chip">—</span>
       </div>
+    </header>
 
-      <div id="sensor-cards" class="sensor-grid"></div>
+    <main class="content">
+      <!-- ══ DASHBOARD ══ -->
+      <section id="view-dashboard" class="view active">
+        <div class="status-strip" id="status-strip">
+          <div class="stat"><div class="stat-k"><svg class="ic"><use href="#i-pulse"/></svg>Box status</div>
+            <div class="stat-v" id="st-health">—</div><div class="stat-s" id="st-health-s">—</div></div>
+          <div class="stat"><div class="stat-k"><svg class="ic"><use href="#i-clock"/></svg>Last poll</div>
+            <div class="stat-v num" id="st-poll">—</div><div class="stat-s" id="st-poll-s">—</div></div>
+          <div class="stat"><div class="stat-k"><svg class="ic"><use href="#i-chip"/></svg>Last LLM call</div>
+            <div class="stat-v num" id="st-llm">—</div><div class="stat-s num" id="st-llm-s">—</div></div>
+          <div class="stat"><div class="stat-k"><svg class="ic"><use href="#i-shield"/></svg>Safety</div>
+            <div class="stat-v" id="st-safe">—</div><div class="stat-s" id="st-safe-s">—</div></div>
+        </div>
 
-      <div id="actuator-panel" class="card actuator-panel">
-        <div class="card-header"><h3>Actuators</h3></div>
-        <div id="actuator-list" class="actuator-list"></div>
-      </div>
+        <div class="panel" id="profile-banner">
+          <div class="profile-top">
+            <div class="profile-id"><h2 id="pb-name">—</h2><span class="cultivar" id="pb-sub"></span></div>
+            <div class="countdown" id="pb-countdown"></div>
+          </div>
+          <div class="timeline" id="phase-timeline"></div>
+          <div class="targets" id="target-chips"></div>
+          <div class="phase-note" id="phase-note" hidden></div>
+        </div>
 
-      <div class="card">
-        <div class="card-header">
-          <h3>Sensor History</h3>
-          <div class="range-btns">
-            <button class="range-btn" data-hours="1">1h</button>
-            <button class="range-btn" data-hours="6">6h</button>
-            <button class="range-btn active" data-hours="24">24h</button>
-            <button class="range-btn" data-hours="168">7d</button>
+        <div class="panel">
+          <div class="panel-title"><svg class="ic"><use href="#i-nodes"/></svg><h2>Nodes</h2>
+            <span class="chip green" style="font-size:11px" id="nodes-online-chip">—</span>
+            <span class="spacer"></span>
+            <button class="btn ghost" data-goto="nodes" style="padding:6px 13px;font-size:12px">Open details</button>
+          </div>
+          <div id="node-summary"></div>
+        </div>
+
+        <div class="section-head"><h2>Sensors</h2><p id="sensors-sub">fleet averages</p></div>
+        <div class="sensor-grid" id="sensor-grid"></div>
+
+        <div class="panel">
+          <div class="panel-title">
+            <svg class="ic"><use href="#i-pulse"/></svg><h2>Sensor history</h2>
+            <span class="spacer"></span>
+            <div class="seg" id="range-seg">
+              <button data-h="1">1h</button><button data-h="6">6h</button>
+              <button data-h="24" class="active">24h</button><button data-h="168">7d</button>
+            </div>
+          </div>
+          <div class="legend" id="chart-legend"></div>
+          <div class="chart-box">
+            <svg id="chart" role="img" aria-label="Sensor history chart"></svg>
+            <div class="chart-tip" id="chart-tip"></div>
           </div>
         </div>
-        <div class="chart-wrap">
-          <canvas id="sensor-chart"></canvas>
+
+        <div class="cols2">
+          <div class="panel">
+            <div class="panel-title"><svg class="ic"><use href="#i-plug"/></svg><h2>Actuators</h2></div>
+            <div id="actuator-list"></div>
+          </div>
+          <div class="panel">
+            <div class="panel-title"><svg class="ic"><use href="#i-chip"/></svg><h2>Last decision</h2></div>
+            <div id="last-decision"></div>
+          </div>
         </div>
-      </div>
 
-      <div id="last-decision-card" class="card"></div>
-    </div>
-
-    <!-- ── Profile ─────────────────────────────────────────────────────── -->
-    <div id="tab-profile" class="tab-pane">
-      <div id="profile-detail" class="card"></div>
-    </div>
-
-    <!-- ── Chat ────────────────────────────────────────────────────────── -->
-    <div id="tab-chat" class="tab-pane">
-      <div class="chat-wrap">
-        <div id="chat-messages" class="chat-messages">
-          <div class="chat-empty dim">Loading conversation…</div>
+        <div class="panel">
+          <div class="panel-title"><svg class="ic"><use href="#i-pulse"/></svg><h2>Recent activity</h2>
+            <span class="spacer"></span>
+            <button class="btn ghost" data-goto="events" style="padding:6px 13px;font-size:12px">View all</button>
+          </div>
+          <div class="act-feed" id="recent-feed"></div>
         </div>
-        <div class="chat-footer">
-          <input id="chat-input" class="chat-input" type="text"
-            placeholder="Note an observation, or ask a question ending with ?">
-          <button id="chat-send" class="btn-send">Send</button>
+      </section>
+
+      <!-- ══ NODES ══ -->
+      <section id="view-nodes" class="view">
+        <div class="nodes-layout">
+          <div class="node-list" id="node-list"></div>
+          <div class="panel" id="node-detail"></div>
         </div>
-        <div class="chat-hint dim">
-          Statement → saved as observation &nbsp;·&nbsp; Question (ends with ?) → AI answers
+        <div class="panel">
+          <div class="panel-title"><svg class="ic"><use href="#i-grid"/></svg><h2>Node comparison</h2></div>
+          <div style="overflow-x:auto">
+          <table class="grid matrix">
+            <thead><tr id="matrix-head"><th>Sensor</th></tr></thead>
+            <tbody id="matrix-body"></tbody>
+          </table>
+          </div>
         </div>
-      </div>
-    </div>
+      </section>
 
-    <!-- ── Decisions ────────────────────────────────────────────────────── -->
-    <div id="tab-decisions" class="tab-pane">
-      <div id="decisions-wrap" class="card"></div>
-    </div>
+      <!-- ══ PROFILE ══ -->
+      <section id="view-profile" class="view">
+        <div class="panel pf-head">
+          <h2 id="pf-name">—</h2>
+          <div class="cultivar" id="pf-cultivar"></div>
+          <p class="pf-notes" id="pf-notes"></p>
+          <div class="pf-stats" id="pf-stats"></div>
+        </div>
+        <div class="section-head"><h2>Growth phases</h2><p>targets per phase, live value on the active phase</p></div>
+        <div id="phases-list" style="display:flex;flex-direction:column;gap:12px"></div>
+      </section>
 
-    <!-- ── Events ──────────────────────────────────────────────────────── -->
-    <div id="tab-events" class="tab-pane">
-      <div id="events-wrap" class="card"></div>
-    </div>
+      <!-- ══ CHAT ══ -->
+      <section id="view-chat" class="view">
+        <div class="chat-shell">
+          <div class="chat-log" id="chat-log"></div>
+          <div class="chat-bar">
+            <input class="chat-in" id="chat-in" type="text" autocomplete="off"
+              placeholder="Note an observation, command an actuator, or ask a question ending with ?">
+            <button class="btn primary" id="chat-send"><svg class="ic"><use href="#i-send"/></svg>Send</button>
+          </div>
+          <div class="chat-tip"><b>Statement</b> → saved as observation &nbsp;·&nbsp; <b>“pump on”</b> → actuator command &nbsp;·&nbsp; <b>Ends with ?</b> → Muse answers</div>
+        </div>
+      </section>
 
-    <!-- ── Readings ───────────────────────────────────────────────────── -->
-    <div id="tab-readings" class="tab-pane">
-      <div class="card readings-intro">
-        <p>Enter readings from your devices. Each value is saved to history and published to MQTT immediately.</p>
-      </div>
-      <div id="readings-form"></div>
-    </div>
+      <!-- ══ DECISIONS ══ -->
+      <section id="view-decisions" class="view">
+        <div class="panel">
+          <div class="panel-title"><svg class="ic"><use href="#i-chip"/></svg><h2>LLM decisions</h2>
+            <span class="spacer"></span>
+            <div class="filters" id="dec-filters">
+              <button class="fchip active" data-f="all">All</button>
+              <button class="fchip" data-f="ovr">Safety overrides</button>
+            </div>
+          </div>
+          <div style="overflow-x:auto">
+          <table class="grid">
+            <thead><tr><th>Time</th><th>Phase</th><th>Commands</th><th>Reason</th><th>Model</th></tr></thead>
+            <tbody id="decisions-body"></tbody>
+          </table>
+          </div>
+        </div>
+      </section>
 
-  </main>
+      <!-- ══ EVENTS ══ -->
+      <section id="view-events" class="view">
+        <div class="panel">
+          <div class="panel-title"><svg class="ic"><use href="#i-pulse"/></svg><h2>Events</h2>
+            <span class="spacer"></span>
+            <div class="filters" id="ev-filters">
+              <button class="fchip active" data-f="all">All</button>
+              <button class="fchip" data-f="info">Info</button>
+              <button class="fchip" data-f="warn">Warnings</button>
+              <button class="fchip" data-f="error">Errors</button>
+            </div>
+          </div>
+          <div class="act-feed" id="events-feed"></div>
+        </div>
+      </section>
 
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/marked@9.1.6/marked.min.js"></script>
-  <script src="app.js"></script>
+      <!-- ══ READINGS ══ -->
+      <section id="view-readings" class="view">
+        <div class="panel">
+          <div class="panel-title"><svg class="ic"><use href="#i-clip"/></svg><h2>Manual readings</h2></div>
+          <p class="dim" style="font-size:13px;margin:-6px 0 6px">Enter values from handheld meters. Each value is saved to history and published to MQTT immediately.</p>
+        </div>
+        <div id="readings-groups" style="display:flex;flex-direction:column;gap:14px"></div>
+      </section>
+    </main>
+  </div>
+</div>
+
+<script src="app.js"></script>
 </body>
 </html>

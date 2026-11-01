@@ -65,7 +65,6 @@ config_*.yaml         # any per-deployment config (healthcare, aquarium, etc.)
 .env.*
 secrets.yaml
 credentials.yaml
-CLAUDE.md
 config.yaml
 
 # Logs
@@ -94,5 +93,3 @@ docker-compose.override.yml
 *.tmp
 *.bak
 *.orig
-config_healthcare.yaml
-plugins/domains/healthcare/profiles/tran_quoc_sang.yaml

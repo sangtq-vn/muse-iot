@@ -1,0 +1,1094 @@
+<!DOCTYPE html>
+<!--
+  Muse-IoT — UI/UX redesign mockup (REVIEW ONLY, not wired to the app).
+  Static file with sample data. Open directly in a browser — no server needed.
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Muse-IoT — UI Review Mockup</title>
+<style>
+:root{
+  --bg:#0b0f0c; --panel:#111613; --panel2:#182019; --inset:#0d120e;
+  --line:#233026; --line-soft:#1a221c;
+  --text:#e9eeea; --muted:#9aa79c; --faint:#68736a;
+  --green:#46d18c; --green-ink:#0a1a12; --green-dim:#152b1f; --green-line:#2f5c42;
+  --blue:#5aa9ff; --blue-dim:#152a42;
+  --amber:#e8a33d; --amber-dim:#33270f;
+  --red:#ef6f6f; --red-dim:#3a1a1a;
+  --r-sm:6px; --r-md:12px; --r-lg:18px;
+  --font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,monospace;
+  --side-w:236px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:14px;line-height:1.55;min-height:100vh}
+button{font-family:inherit;cursor:pointer}
+input{font-family:inherit}
+::selection{background:#234d36}
+:focus-visible{outline:2px solid var(--green);outline-offset:2px;border-radius:4px}
+.num{font-variant-numeric:tabular-nums}
+.dim{color:var(--muted)}
+svg.ic{width:16px;height:16px;flex-shrink:0;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+
+/* ── Layout ─────────────────────────────────────────── */
+.app{display:flex;min-height:100vh}
+.sidebar{width:var(--side-w);flex-shrink:0;background:var(--panel);border-right:1px solid var(--line-soft);
+  position:sticky;top:0;height:100vh;display:flex;flex-direction:column;padding:18px 14px;gap:4px}
+.brand{display:flex;align-items:center;gap:10px;padding:4px 8px 16px}
+.brand-mark{width:32px;height:32px;border-radius:9px;background:var(--green-dim);border:1px solid var(--green-line);
+  display:flex;align-items:center;justify-content:center;color:var(--green)}
+.brand-mark svg.ic{width:18px;height:18px}
+.brand-name{font-size:15px;font-weight:700;letter-spacing:-0.01em}
+.brand-sub{font-size:11px;color:var(--faint);font-family:var(--mono)}
+.nav-label{font-size:11px;font-weight:600;color:var(--faint);padding:12px 10px 5px;letter-spacing:.02em}
+.nav-btn{display:flex;align-items:center;gap:11px;width:100%;background:none;border:none;color:var(--muted);
+  font-size:13.5px;font-weight:500;padding:9px 10px;border-radius:8px;text-align:left;transition:background .12s,color .12s}
+.nav-btn:hover{background:var(--panel2);color:var(--text)}
+.nav-btn.active{background:var(--green-dim);color:var(--green)}
+.nav-btn .nav-badge{margin-left:auto;font-size:11px;font-weight:700;background:var(--amber-dim);color:var(--amber);
+  border-radius:99px;padding:1px 8px}
+.side-foot{margin-top:auto;padding:12px 8px 2px;border-top:1px solid var(--line-soft);display:flex;flex-direction:column;gap:8px}
+.conn{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
+.live-dot{width:8px;height:8px;border-radius:50%;background:var(--green);animation:pulse 2.4s infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(70,209,140,.45)}50%{box-shadow:0 0 0 5px rgba(70,209,140,0)}}
+.mock-note{font-size:11px;color:var(--faint);line-height:1.5}
+
+.main{flex:1;min-width:0;display:flex;flex-direction:column}
+.topbar{position:sticky;top:0;z-index:50;background:rgba(11,15,12,.88);backdrop-filter:blur(10px);
+  border-bottom:1px solid var(--line-soft);padding:14px 28px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.topbar h1{font-size:17px;font-weight:700;letter-spacing:-0.01em}
+.topbar .box-tag{font-family:var(--mono);font-size:12px;color:var(--muted);background:var(--panel2);
+  border:1px solid var(--line);padding:3px 10px;border-radius:99px}
+.top-right{margin-left:auto;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:4px 11px;border-radius:99px;
+  background:var(--panel2);border:1px solid var(--line);color:var(--text)}
+.chip.green{background:var(--green-dim);border-color:var(--green-line);color:var(--green)}
+.chip.blue{background:var(--blue-dim);border-color:#274a71;color:var(--blue)}
+.chip.mock{border-style:dashed;color:var(--faint);font-weight:500}
+.content{padding:24px 28px 64px;max-width:1180px;width:100%;margin:0 auto;display:flex;flex-direction:column;gap:20px}
+.view{display:none;flex-direction:column;gap:20px}
+.view.active{display:flex}
+
+/* ── Panels & sections ──────────────────────────────── */
+.panel{background:var(--panel);border:1px solid var(--line-soft);border-radius:var(--r-md);padding:20px 22px}
+.panel-title{display:flex;align-items:center;gap:9px;margin-bottom:14px}
+.panel-title h2{font-size:14px;font-weight:650}
+.panel-title svg.ic{color:var(--green)}
+.panel-title .spacer{flex:1}
+.section-head{display:flex;align-items:baseline;gap:10px;margin:4px 0 -6px}
+.section-head h2{font-size:14px;font-weight:650}
+.section-head p{font-size:12px;color:var(--faint)}
+
+/* Status strip */
+.status-strip{display:grid;grid-template-columns:repeat(4,1fr);background:var(--panel);
+  border:1px solid var(--line-soft);border-radius:var(--r-md);overflow:hidden}
+.stat{padding:15px 20px;border-left:1px solid var(--line-soft)}
+.stat:first-child{border-left:none}
+.stat-k{font-size:11.5px;font-weight:600;color:var(--faint);display:flex;align-items:center;gap:6px;margin-bottom:3px}
+.stat-v{font-size:16px;font-weight:700;letter-spacing:-0.01em}
+.stat-v .unit{font-size:12px;font-weight:500;color:var(--muted)}
+.stat-s{font-size:12px;color:var(--muted)}
+
+/* Profile banner */
+.profile-top{display:flex;align-items:flex-start;gap:14px;flex-wrap:wrap;margin-bottom:16px}
+.profile-id h2{font-size:18px;font-weight:700;letter-spacing:-0.015em}
+.profile-id .cultivar{font-size:13px;color:var(--muted)}
+.countdown{margin-left:auto;text-align:right;font-size:12px;color:var(--muted)}
+.countdown strong{display:block;font-size:15px;color:var(--green)}
+.timeline{position:relative;height:34px;display:flex;gap:3px;margin-bottom:26px}
+.tseg{border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;
+  overflow:hidden;white-space:nowrap;min-width:0}
+.tseg.done{background:#16241b;color:#5c7a68}
+.tseg.now{background:var(--green-dim);color:var(--green);border:1px solid var(--green-line)}
+.tseg.next{background:var(--panel2);color:var(--faint)}
+.tmarker{position:absolute;top:-4px;bottom:-22px;width:2px;background:var(--green);border-radius:2px}
+.tmarker span{position:absolute;bottom:-2px;left:50%;transform:translateX(-50%);font-size:10.5px;font-weight:700;
+  color:var(--green);white-space:nowrap}
+.targets{display:flex;gap:10px;flex-wrap:wrap}
+.target{flex:1;min-width:150px;background:var(--inset);border:1px solid var(--line-soft);border-radius:9px;padding:10px 13px}
+.target .t-k{font-size:11.5px;color:var(--muted);font-weight:600}
+.target .t-v{font-size:19px;font-weight:700;margin:1px 0}
+.target .t-v small{font-size:12px;font-weight:500;color:var(--muted)}
+.target .t-r{font-size:11.5px;color:var(--faint)}
+.target.ok .t-v{color:var(--green)}
+.target.warn{border-color:#5c4a1e}
+.target.warn .t-v{color:var(--amber)}
+.target.bad{border-color:#5f2b2b}
+.target.bad .t-v{color:var(--red)}
+.phase-note{margin-top:12px;font-size:12.5px;color:var(--muted);border-top:1px dashed var(--line);padding-top:10px}
+
+/* Sensor cards */
+.sensor-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.sensor{background:var(--panel);border:1px solid var(--line-soft);border-radius:var(--r-md);padding:17px 18px 14px;position:relative}
+.sensor-top{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:12.5px;font-weight:600;margin-bottom:2px}
+.sensor-top .st{margin-left:auto;font-size:10.5px;font-weight:700;padding:2px 9px;border-radius:99px}
+.st.ok{background:var(--green-dim);color:var(--green)}
+.st.warn{background:var(--amber-dim);color:var(--amber)}
+.st.bad{background:var(--red-dim);color:var(--red)}
+.sensor-val{font-size:31px;font-weight:750;letter-spacing:-0.02em;line-height:1.15}
+.sensor-val small{font-size:14px;font-weight:500;color:var(--muted);margin-left:3px}
+.sensor-trend{font-size:11.5px;color:var(--faint);display:flex;align-items:center;gap:4px;margin:2px 0 8px}
+.sensor-trend.up{color:var(--amber)} .sensor-trend.down{color:var(--blue)}
+.spark{width:100%;height:44px;display:block;margin:2px 0 6px}
+.rbar{position:relative;height:6px;background:var(--panel2);border-radius:4px;margin:8px 0 8px}
+.rbar .zone{position:absolute;top:0;bottom:0;background:#2a5440;border-radius:4px}
+.rbar .val{position:absolute;top:-3px;width:4px;height:12px;border-radius:2px;background:var(--green);transform:translateX(-2px)}
+.rbar .val.warn{background:var(--amber)} .rbar .val.bad{background:var(--red)}
+.sensor-meta{font-size:11px;color:var(--faint)}
+
+/* Chart */
+.seg{display:flex;background:var(--inset);border:1px solid var(--line);border-radius:8px;padding:2px;gap:2px}
+.seg button{background:none;border:none;color:var(--muted);font-size:12px;font-weight:600;padding:4px 12px;border-radius:6px}
+.seg button:hover{color:var(--text)}
+.seg button.active{background:var(--panel2);color:var(--green);box-shadow:inset 0 0 0 1px var(--green-line)}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-bottom:6px}
+.legend i{display:inline-block;width:10px;height:3px;border-radius:2px;margin-right:6px;vertical-align:middle}
+.chart-box{position:relative}
+#chart{width:100%;height:260px;display:block}
+.chart-tip{position:absolute;pointer-events:none;background:#0d130f;border:1px solid var(--line);border-radius:8px;
+  padding:7px 11px;font-size:11.5px;display:none;white-space:nowrap;box-shadow:0 8px 24px rgba(0,0,0,.5);z-index:5}
+.chart-tip .tt{color:var(--faint);margin-bottom:2px}
+
+/* Two-column row */
+.cols2{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start}
+
+/* Actuators */
+.act-row{display:flex;align-items:center;gap:12px;padding:13px 2px;border-bottom:1px solid var(--line-soft)}
+.act-row:last-child{border-bottom:none}
+.act-ic{width:34px;height:34px;border-radius:10px;background:var(--panel2);border:1px solid var(--line);
+  display:flex;align-items:center;justify-content:center;color:var(--muted)}
+.act-row.is-on .act-ic{color:var(--green);border-color:var(--green-line);background:var(--green-dim)}
+.act-info{flex:1;min-width:0}
+.act-name{font-size:13.5px;font-weight:600}
+.act-sub{font-size:11.5px;color:var(--faint)}
+.switch{position:relative;width:44px;height:24px;flex-shrink:0}
+.switch input{position:absolute;opacity:0;width:100%;height:100%;cursor:pointer;margin:0}
+.sw-track{position:absolute;inset:0;background:var(--panel2);border:1px solid var(--line);border-radius:99px;transition:background .15s,border-color .15s}
+.sw-thumb{position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:var(--muted);transition:left .15s,background .15s}
+.switch input:checked + .sw-track{background:var(--green-dim);border-color:var(--green-line)}
+.switch input:checked + .sw-track + .sw-thumb{left:23px;background:var(--green)}
+.switch input:focus-visible + .sw-track{outline:2px solid var(--green);outline-offset:2px}
+
+/* Decision */
+.dec-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-bottom:12px}
+.cmds{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:12px}
+.cmd{font-size:12.5px;font-weight:650;padding:5px 12px;border-radius:7px;font-family:var(--mono)}
+.cmd.on{background:var(--green-dim);color:var(--green);border:1px solid var(--green-line)}
+.cmd.off{background:var(--panel2);color:var(--muted);border:1px solid var(--line)}
+.cmd.pwm{background:var(--blue-dim);color:var(--blue);border:1px solid #274a71}
+.dec-reason{font-size:13.5px;line-height:1.6}
+.dec-flag{margin-top:12px;font-size:12px;font-weight:600;color:var(--amber);background:var(--amber-dim);
+  border:1px solid #5c4a1e;border-radius:8px;padding:8px 12px;display:flex;gap:8px;align-items:center}
+
+/* Activity list */
+.act-feed{display:flex;flex-direction:column}
+.feed-row{display:flex;align-items:center;gap:12px;padding:10px 2px;border-bottom:1px solid var(--line-soft);font-size:13px}
+.feed-row:last-child{border-bottom:none}
+.feed-ic{width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.feed-ic svg.ic{width:14px;height:14px}
+.fi-info{background:var(--panel2);color:var(--muted)}
+.fi-ok{background:var(--green-dim);color:var(--green)}
+.fi-warn{background:var(--amber-dim);color:var(--amber)}
+.fi-err{background:var(--red-dim);color:var(--red)}
+.feed-body{flex:1;min-width:0}
+.feed-type{font-weight:600}
+.feed-note{color:var(--muted);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.feed-ts{font-size:11.5px;color:var(--faint);white-space:nowrap}
+
+/* Profile view */
+.pf-head h2{font-size:22px;font-weight:750;letter-spacing:-0.02em}
+.pf-head .cultivar{color:var(--green);font-weight:600;font-size:13.5px}
+.pf-notes{color:var(--muted);font-size:13.5px;margin-top:8px;max-width:640px}
+.pf-stats{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+.pf-stat{background:var(--inset);border:1px solid var(--line-soft);border-radius:9px;padding:8px 14px;font-size:12.5px;color:var(--muted)}
+.pf-stat strong{color:var(--text);font-weight:700}
+.phase-block{background:var(--panel);border:1px solid var(--line-soft);border-radius:var(--r-md);padding:18px 20px}
+.phase-block.now{border-color:var(--green-line)}
+.phase-block.done{opacity:.62}
+.pb-head{display:flex;align-items:center;gap:10px;margin-bottom:4px;flex-wrap:wrap}
+.pb-dot{width:9px;height:9px;border-radius:50%;background:var(--faint)}
+.phase-block.now .pb-dot{background:var(--green);box-shadow:0 0 8px var(--green)}
+.phase-block.done .pb-dot{background:var(--green)}
+.pb-name{font-size:14.5px;font-weight:700}
+.pb-days{font-size:12px;color:var(--faint);margin-left:auto;font-family:var(--mono)}
+.pb-notes{font-size:12.5px;color:var(--muted);margin:2px 0 10px}
+.pt-row{display:grid;grid-template-columns:130px 110px 1fr 56px;align-items:center;gap:10px;padding:7px 0;
+  border-top:1px dashed var(--line-soft);font-size:12.5px}
+.pt-row .rng{color:var(--faint);font-size:11.5px;font-family:var(--mono)}
+.pt-row .cur{text-align:right;font-weight:700;font-family:var(--mono)}
+.pt-row .cur.ok{color:var(--green)} .pt-row .cur.low{color:var(--amber)} .pt-row .cur.high{color:var(--red)}
+
+/* Tables */
+table.grid{width:100%;border-collapse:collapse;font-size:13px}
+table.grid th{text-align:left;font-size:11px;font-weight:650;color:var(--faint);padding:0 12px 10px 0;
+  border-bottom:1px solid var(--line);white-space:nowrap}
+table.grid td{padding:11px 12px 11px 0;border-bottom:1px solid var(--line-soft);vertical-align:top}
+table.grid tr:last-child td{border-bottom:none}
+table.grid tr.hl td{background:rgba(232,163,61,.06)}
+td.ts{white-space:nowrap;color:var(--muted);font-size:12px;font-family:var(--mono)}
+td .rsn{color:var(--muted);font-size:12.5px;max-width:380px;display:block;line-height:1.5}
+.phase-tag{font-size:11px;font-weight:700;background:var(--panel2);border:1px solid var(--line);border-radius:5px;
+  padding:2px 8px;white-space:nowrap}
+.cmds.mini .cmd{font-size:11px;padding:3px 9px}
+.model-cell{font-size:11.5px;color:var(--muted);font-family:var(--mono);white-space:nowrap}
+.ovr{font-size:10.5px;font-weight:700;color:var(--amber);display:block;margin-top:3px}
+
+/* Filters */
+.filters{display:flex;gap:7px;flex-wrap:wrap}
+.fchip{background:var(--panel2);border:1px solid var(--line);color:var(--muted);font-size:12px;font-weight:600;
+  padding:5px 13px;border-radius:99px}
+.fchip:hover{color:var(--text)}
+.fchip.active{background:var(--green-dim);border-color:var(--green-line);color:var(--green)}
+
+/* Chat */
+.chat-shell{background:var(--panel);border:1px solid var(--line-soft);border-radius:var(--r-lg);overflow:hidden;
+  display:flex;flex-direction:column;height:calc(100vh - 240px);min-height:420px}
+.chat-log{flex:1;overflow-y:auto;padding:22px;display:flex;flex-direction:column;gap:16px}
+.msg{max-width:78%;display:flex;flex-direction:column;gap:4px}
+.msg.u{align-self:flex-end;align-items:flex-end}
+.msg.a{align-self:flex-start}
+.msg-meta{font-size:11px;color:var(--faint);display:flex;gap:7px;align-items:center}
+.msg-meta .who{font-weight:700}
+.msg.u .who{color:var(--green)} .msg.a .who{color:var(--blue)}
+.bubble{padding:11px 15px;font-size:13.5px;line-height:1.6;border-radius:14px}
+.msg.u .bubble{background:var(--green-dim);border:1px solid var(--green-line);border-bottom-right-radius:4px}
+.msg.a .bubble{background:var(--panel2);border:1px solid var(--line);border-bottom-left-radius:4px}
+.bubble p{margin:0 0 7px} .bubble p:last-child{margin-bottom:0}
+.bubble ul{margin:4px 0 8px 18px} .bubble li{margin-bottom:2px}
+.bubble code{font-family:var(--mono);font-size:12px;background:var(--inset);border:1px solid var(--line);
+  border-radius:4px;padding:1px 6px}
+.bubble strong{font-weight:650}
+.sys{align-self:center;font-size:12px;color:var(--faint);background:var(--panel2);border:1px solid var(--line);
+  padding:5px 14px;border-radius:99px}
+.typing{display:inline-flex;gap:4px;padding:13px 16px}
+.typing i{width:6px;height:6px;border-radius:50%;background:var(--muted);animation:tp 1.1s infinite}
+.typing i:nth-child(2){animation-delay:.18s} .typing i:nth-child(3){animation-delay:.36s}
+@keyframes tp{0%,100%{opacity:.3}50%{opacity:1}}
+.chat-bar{display:flex;gap:9px;padding:13px 15px;border-top:1px solid var(--line-soft);background:var(--panel)}
+.chat-in{flex:1;background:var(--inset);border:1px solid var(--line);border-radius:10px;color:var(--text);
+  padding:10px 14px;font-size:13.5px;outline:none;transition:border-color .15s}
+.chat-in:focus{border-color:var(--green-line)}
+.chat-in::placeholder{color:var(--faint)}
+.btn{display:inline-flex;align-items:center;gap:7px;border-radius:9px;font-size:13px;font-weight:650;
+  padding:9px 17px;border:1px solid transparent;transition:filter .12s,background .12s}
+.btn:hover{filter:brightness(1.1)}
+.btn.primary{background:var(--green);color:var(--green-ink)}
+.btn.ghost{background:var(--panel2);border-color:var(--line);color:var(--text)}
+.chat-tip{font-size:11px;color:var(--faint);text-align:center;padding:0 12px 10px;background:var(--panel)}
+.chat-tip b{color:var(--muted);font-weight:600}
+
+/* Readings */
+.read-group{margin-bottom:2px}
+.read-row{display:grid;grid-template-columns:1fr 150px 96px;gap:12px;align-items:center;padding:13px 0;
+  border-bottom:1px solid var(--line-soft)}
+.read-row:last-child{border-bottom:none}
+.read-name{font-size:13.5px;font-weight:600}
+.read-sub{font-size:11.5px;color:var(--faint);margin-top:1px}
+.read-sub .cur-now{color:var(--green);font-weight:600}
+.read-in{background:var(--inset);border:1px solid var(--line);border-radius:8px;color:var(--text);
+  padding:8px 12px;font-size:13.5px;width:100%;outline:none}
+.read-in:focus{border-color:var(--blue)}
+.read-fb{font-size:12px;color:var(--green);min-height:18px}
+.read-fb.err{color:var(--red)}
+.read-hint{font-size:11.5px;color:var(--faint);grid-column:1/-1;margin-top:-8px}
+
+.footer-note{text-align:center;font-size:12px;color:var(--faint);padding:8px 0 0}
+.footer-note b{color:var(--muted)}
+
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:#2a352d;border-radius:4px}
+
+@media (max-width:960px){
+  .sidebar{position:fixed;z-index:100;left:0;right:0;bottom:0;top:auto;height:auto;width:auto;
+    flex-direction:row;align-items:center;padding:8px 10px;border-right:none;border-top:1px solid var(--line);overflow-x:auto}
+  .brand,.nav-label,.side-foot{display:none}
+  .nav-btn{flex-direction:column;gap:3px;font-size:10.5px;padding:7px 12px;white-space:nowrap}
+  .nav-btn .nav-badge{display:none}
+  .main{padding-bottom:76px}
+  .content{padding:18px 14px 40px}
+  .topbar{padding:12px 14px}
+  .status-strip{grid-template-columns:1fr 1fr}
+  .stat:nth-child(3){border-left:none}
+  .stat{border-top:1px solid var(--line-soft)}
+  .stat:nth-child(-n+2){border-top:none}
+  .sensor-grid{grid-template-columns:1fr}
+  .cols2{grid-template-columns:1fr}
+  .msg{max-width:92%}
+  .pt-row{grid-template-columns:1fr 1fr}
+  .pt-row .rbar{grid-column:1/-1;order:3}
+  .read-row{grid-template-columns:1fr 120px}
+  .read-row .btn{grid-column:1/-1;justify-content:center}
+}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}
+}
+/* ── Nodes ─────────────────────────────────────────────── */
+.node-sum-row{display:flex;align-items:center;gap:12px;width:100%;background:none;border:none;
+  border-bottom:1px solid var(--line-soft);padding:11px 2px;color:var(--text);font-size:13px;text-align:left}
+.node-sum-row:last-child{border-bottom:none}
+.node-sum-row:hover .n-id{color:var(--green)}
+.node-dot{width:9px;height:9px;border-radius:50%;background:var(--green);flex-shrink:0}
+.node-dot.stale{background:var(--amber)}
+.n-id{font-family:var(--mono);font-weight:700;font-size:13px}
+.n-sub{font-size:11.5px;color:var(--faint)}
+.node-sum-row .go{margin-left:auto;font-size:12px;font-weight:600;color:var(--faint);white-space:nowrap}
+.node-sum-row:hover .go{color:var(--green)}
+.nodes-layout{display:grid;grid-template-columns:248px 1fr;gap:14px;align-items:start}
+.node-list{display:flex;flex-direction:column;gap:8px}
+.node-item{display:flex;align-items:center;gap:11px;background:var(--panel);border:1px solid var(--line-soft);
+  border-radius:var(--r-md);padding:13px 14px;cursor:pointer;text-align:left;color:var(--text);width:100%}
+.node-item:hover{border-color:var(--line)}
+.node-item.active{border-color:var(--green-line);background:var(--green-dim)}
+.node-item .n-sub{display:block}
+.nd-head{display:flex;align-items:center;gap:11px;flex-wrap:wrap;margin-bottom:4px}
+.nd-head h2{font-size:17px;font-weight:750;font-family:var(--mono);letter-spacing:-0.01em}
+.nd-meta{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:14px 0}
+.nd-meta .m{background:var(--inset);border:1px solid var(--line-soft);border-radius:8px;padding:8px 12px}
+.nd-meta .k{font-size:10.5px;font-weight:600;color:var(--faint)}
+.nd-meta .v{font-size:12.5px;font-family:var(--mono);font-weight:600}
+.node-sensors{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:6px 0 4px}
+.nsensor{background:var(--inset);border:1px solid var(--line-soft);border-radius:9px;padding:11px 13px}
+.nsensor .t-k{font-size:11.5px;color:var(--muted);font-weight:600;display:flex;align-items:center;gap:6px}
+.nsensor .t-v{font-size:21px;font-weight:750;margin:2px 0}
+.nsensor .t-v small{font-size:12px;font-weight:500;color:var(--muted)}
+.nsensor .t-r{font-size:11px;color:var(--faint)}
+.nsensor.ok .t-v{color:var(--green)}
+.nsensor.warn{border-color:#5c4a1e} .nsensor.warn .t-v{color:var(--amber)}
+.nsensor.bad{border-color:#5f2b2b} .nsensor.bad .t-v{color:var(--red)}
+.nd-sub{font-size:13px;font-weight:650;margin:16px 0 2px}
+.matrix td.num, .matrix th.num{text-align:right;font-family:var(--mono)}
+.matrix td.avg{color:var(--green);font-weight:700}
+
+@media (max-width:960px){
+  .nodes-layout{grid-template-columns:1fr}
+  .node-list{flex-direction:row;overflow-x:auto}
+  .node-item{min-width:210px}
+  .node-sensors{grid-template-columns:1fr}
+  .nd-meta{grid-template-columns:1fr 1fr}
+}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.5"/></symbol>
+<symbol id="i-sprout" viewBox="0 0 24 24"><path d="M12 21v-8"/><path d="M12 13c0-4 3-7 8-7 0 4-3 7-8 7z"/><path d="M12 13c0-3-2.5-5-6-5 0 3 2.5 5 6 5z"/><path d="M7 21h10"/></symbol>
+<symbol id="i-chat" viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-8 8H4l2-3a8 8 0 1 1 15-5z"/><circle cx="9" cy="12" r=".5"/><circle cx="13" cy="12" r=".5"/><circle cx="17" cy="12" r=".5"/></symbol>
+<symbol id="i-chip" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 1v4M15 1v4M9 19v4M15 19v4M1 9h4M1 15h4M19 9h4M19 15h4"/></symbol>
+<symbol id="i-pulse" viewBox="0 0 24 24"><path d="M2 12h4l3-8 4 16 3-8h6"/></symbol>
+<symbol id="i-clip" viewBox="0 0 24 24"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4a3 3 0 0 1 6 0"/><path d="M9 11h6M9 15h4"/></symbol>
+<symbol id="i-therm" viewBox="0 0 24 24"><path d="M10 4a2 2 0 0 1 4 0v9.3a4.5 4.5 0 1 1-4 0z"/><circle cx="12" cy="17.5" r="1.6"/></symbol>
+<symbol id="i-drop" viewBox="0 0 24 24"><path d="M12 3s6 6.3 6 11a6 6 0 0 1-12 0c0-4.7 6-11 6-11z"/></symbol>
+<symbol id="i-leaf" viewBox="0 0 24 24"><path d="M5 19C5 9 12 4 20 4c0 8-5 15-15 15z"/><path d="M5 19c3-5 7-9 11-11"/></symbol>
+<symbol id="i-fan" viewBox="0 0 24 24"><circle cx="12" cy="12" r="1.6"/><path d="M12 10.4C10 7 10 3.5 12 2c2 1.5 2 5 0 8.4zM13.4 12c3.4-2 6.9-2 8.5 0-1.6 2-5.1 2-8.5 0zM12 13.6c2 3.4 2 6.9 0 8.5-2-1.6-2-5.1 0-8.5zM10.6 12C7.2 14 3.7 14 2 12c1.7-2 5.2-2 8.6 0z"/></symbol>
+<symbol id="i-plug" viewBox="0 0 24 24"><path d="M9 2v6M15 2v6M6 8h12v4a6 6 0 0 1-12 0zM12 18v4"/></symbol>
+<symbol id="i-check" viewBox="0 0 24 24"><path d="M4 12.5l5 5L20 6.5"/></symbol>
+<symbol id="i-warn" viewBox="0 0 24 24"><path d="M12 3L2 20h20z"/><path d="M12 10v4M12 17.5v.5"/></symbol>
+<symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5V8"/></symbol>
+<symbol id="i-x" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9 9l6 6M15 9l-6 6"/></symbol>
+<symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></symbol>
+<symbol id="i-up" viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></symbol>
+<symbol id="i-down" viewBox="0 0 24 24"><path d="M12 5v14M5 12l7 7 7-7"/></symbol>
+<symbol id="i-send" viewBox="0 0 24 24"><path d="M21 3L10 14M21 3l-7 18-4-7-9-4z"/></symbol>
+<symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></symbol>
+<symbol id="i-nodes" viewBox="0 0 24 24"><rect x="2" y="9" width="7" height="7" rx="1.5"/><rect x="15" y="2" width="7" height="7" rx="1.5"/><rect x="15" y="15" width="7" height="7" rx="1.5"/><path d="M9 11.5l6-4M9 13.5l6 4"/></symbol>
+<symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 2l8 3v6c0 5-3.5 9-8 11-4.5-2-8-6-8-11V5z"/><path d="M9 12l2 2 4-4"/></symbol>
+</defs></svg>
+
+<div class="app">
+  <!-- ── Sidebar ─────────────────────────────────────── -->
+  <aside class="sidebar">
+    <div class="brand">
+      <span class="brand-mark"><svg class="ic"><use href="#i-sprout"/></svg></span>
+      <span><span class="brand-name">Muse-IoT</span><br><span class="brand-sub">balcony_box_1</span></span>
+    </div>
+    <div class="nav-label">Monitor</div>
+    <button class="nav-btn active" data-view="dashboard"><svg class="ic"><use href="#i-grid"/></svg>Dashboard</button>
+    <button class="nav-btn" data-view="nodes"><svg class="ic"><use href="#i-nodes"/></svg>Nodes</button>
+    <button class="nav-btn" data-view="events"><svg class="ic"><use href="#i-pulse"/></svg>Events<span class="nav-badge">3</span></button>
+    <div class="nav-label">Grow</div>
+    <button class="nav-btn" data-view="profile"><svg class="ic"><use href="#i-sprout"/></svg>Profile</button>
+    <button class="nav-btn" data-view="readings"><svg class="ic"><use href="#i-clip"/></svg>Readings</button>
+    <div class="nav-label">Intelligence</div>
+    <button class="nav-btn" data-view="chat"><svg class="ic"><use href="#i-chat"/></svg>Chat</button>
+    <button class="nav-btn" data-view="decisions"><svg class="ic"><use href="#i-chip"/></svg>Decisions</button>
+    <div class="side-foot">
+      <div class="conn"><span class="live-dot"></span><span id="conn-label">Live · poll 120s</span></div>
+      <div class="mock-note">Review mockup with sample data. Nothing here controls hardware.</div>
+    </div>
+  </aside>
+
+  <!-- ── Main ────────────────────────────────────────── -->
+  <div class="main">
+    <header class="topbar">
+      <h1 id="view-title">Dashboard</h1>
+      <span class="box-tag">smart_garden · swiss_chard</span>
+      <div class="top-right">
+        <span class="chip">Day 23</span>
+        <span class="chip green">vegetative</span>
+        <span class="chip blue">muse-spark-1.3</span>
+        <span class="chip mock">UI mockup</span>
+      </div>
+    </header>
+
+    <main class="content">
+      <!-- ══ DASHBOARD ══ -->
+      <section id="view-dashboard" class="view active">
+        <div class="status-strip">
+          <div class="stat"><div class="stat-k"><svg class="ic"><use href="#i-pulse"/></svg>Box status</div>
+            <div class="stat-v" style="color:var(--green)">Healthy</div>
+            <div class="stat-s">3 sensors reporting</div></div>
+          <div class="stat"><div class="stat-k"><svg class="ic"><use href="#i-clock"/></svg>Last poll</div>
+            <div class="stat-v num" id="last-poll">38s <span class="unit">ago</span></div>
+            <div class="stat-s">every 120s · next <span class="num" id="next-poll">1m 22s</span></div></div>
+          <div class="stat"><div class="stat-k"><svg class="ic"><use href="#i-chip"/></svg>Last LLM call</div>
+            <div class="stat-v num">842 <span class="unit">ms</span></div>
+            <div class="stat-s num">muse-spark-1.3 · 1,204 tokens</div></div>
+          <div class="stat"><div class="stat-k"><svg class="ic"><use href="#i-shield"/></svg>Safety</div>
+            <div class="stat-v" style="color:var(--amber)">1 override</div>
+            <div class="stat-s">pump held off · soil 81%</div></div>
+        </div>
+
+        <div class="panel">
+          <div class="profile-top">
+            <div class="profile-id"><h2>Swiss chard</h2><span class="cultivar">Bright Lights · balcony_box_1</span></div>
+            <div class="countdown"><strong>4 days</strong>until harvest window</div>
+          </div>
+          <div class="timeline" id="phase-timeline"><!-- rendered --></div>
+          <div class="targets" id="target-chips"><!-- rendered --></div>
+          <div class="phase-note">Vegetative: keep canopy under 28°C and soil evenly moist. Fan may run continuously through hot afternoons.</div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-title"><svg class="ic"><use href="#i-nodes"/></svg><h2>Nodes</h2>
+            <span class="chip green" style="font-size:11px">2 online</span>
+            <span class="spacer"></span>
+            <button class="btn ghost" data-goto="nodes" style="padding:6px 13px;font-size:12px">Open details</button>
+          </div>
+          <div id="node-summary"><!-- rendered --></div>
+        </div>
+
+        <div class="section-head"><h2>Sensors</h2><p>fleet averages across 2 nodes · per-node values in Nodes</p></div>
+        <div class="sensor-grid" id="sensor-grid"><!-- rendered --></div>
+
+        <div class="panel">
+          <div class="panel-title">
+            <svg class="ic"><use href="#i-pulse"/></svg><h2>Sensor history</h2>
+            <span class="spacer"></span>
+            <div class="seg" id="range-seg">
+              <button data-h="1">1h</button><button data-h="6">6h</button>
+              <button data-h="24" class="active">24h</button><button data-h="168">7d</button>
+            </div>
+          </div>
+          <div class="legend">
+            <span><i style="background:#f0a35c"></i>Temperature (°C)</span>
+            <span><i style="background:#5aa9ff"></i>Humidity (%)</span>
+            <span><i style="background:#46d18c"></i>Soil moisture (%)</span>
+          </div>
+          <div class="chart-box">
+            <svg id="chart" role="img" aria-label="Sensor history chart"></svg>
+            <div class="chart-tip" id="chart-tip"></div>
+          </div>
+        </div>
+
+        <div class="cols2">
+          <div class="panel">
+            <div class="panel-title"><svg class="ic"><use href="#i-plug"/></svg><h2>Actuators</h2></div>
+            <div id="actuator-list"><!-- rendered --></div>
+          </div>
+          <div class="panel">
+            <div class="panel-title"><svg class="ic"><use href="#i-chip"/></svg><h2>Last decision</h2></div>
+            <div class="dec-meta"><span class="num">Oct 31, 14:32</span><span>·</span><span class="num">muse-spark-1.3</span><span>·</span><span class="num">842ms</span></div>
+            <div class="cmds">
+              <span class="cmd off">relay_pump: off</span>
+              <span class="cmd on">relay_fan: on</span>
+            </div>
+            <p class="dec-reason">Canopy at 29.4°C is above the 28° ceiling, so the fan stays on. Soil is at 52% — below target, but the pump ran 26 minutes ago, so holding off to avoid overwatering.</p>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-title"><svg class="ic"><use href="#i-pulse"/></svg><h2>Recent activity</h2>
+            <span class="spacer"></span>
+            <button class="btn ghost" data-goto="events" style="padding:6px 13px;font-size:12px">View all</button>
+          </div>
+          <div class="act-feed" id="recent-feed"><!-- rendered --></div>
+        </div>
+      </section>
+      <!-- ══ PROFILE ══ -->
+      <section id="view-profile" class="view">
+        <div class="panel pf-head">
+          <h2>Swiss chard</h2>
+          <div class="cultivar">Bright Lights · smart_garden domain</div>
+          <p class="pf-notes">Cut-and-come-again greens for a 60×40cm balcony box in Ho Chi Minh City. Harvest outer leaves from day 36; keep soil evenly moist through vegetative growth.</p>
+          <div class="pf-stats">
+            <span class="pf-stat">Started <strong>Oct 8</strong></span>
+            <span class="pf-stat">Day <strong class="num">23 of 45</strong></span>
+            <span class="pf-stat">Phase <strong>vegetative</strong></span>
+            <span class="pf-stat">Harvest at day <strong class="num">36–45</strong></span>
+          </div>
+        </div>
+        <div class="section-head"><h2>Growth phases</h2><p>targets per phase, live value on the active phase</p></div>
+        <div id="phases-list" style="display:flex;flex-direction:column;gap:12px"><!-- rendered --></div>
+      </section>
+
+      <!-- ══ CHAT ══ -->
+      <section id="view-chat" class="view">
+        <div class="chat-shell">
+          <div class="chat-log" id="chat-log"><!-- rendered --></div>
+          <div class="chat-bar">
+            <input class="chat-in" id="chat-in" type="text" autocomplete="off"
+              placeholder="Note an observation, command an actuator, or ask a question ending with ?">
+            <button class="btn primary" id="chat-send"><svg class="ic"><use href="#i-send"/></svg>Send</button>
+          </div>
+          <div class="chat-tip"><b>Statement</b> → saved as observation &nbsp;·&nbsp; <b>“pump on”</b> → actuator command &nbsp;·&nbsp; <b>Ends with ?</b> → Muse answers</div>
+        </div>
+      </section>
+
+      <!-- ══ DECISIONS ══ -->
+      <section id="view-decisions" class="view">
+        <div class="panel">
+          <div class="panel-title"><svg class="ic"><use href="#i-chip"/></svg><h2>LLM decisions</h2>
+            <span class="spacer"></span>
+            <div class="filters" id="dec-filters">
+              <button class="fchip active" data-f="all">All</button>
+              <button class="fchip" data-f="ovr">Safety overrides</button>
+            </div>
+          </div>
+          <div style="overflow-x:auto">
+          <table class="grid">
+            <thead><tr><th>Time</th><th>Phase</th><th>Commands</th><th>Reason</th><th>Model</th></tr></thead>
+            <tbody id="decisions-body"><!-- rendered --></tbody>
+          </table>
+          </div>
+        </div>
+      </section>
+      <!-- ══ NODES ══ -->
+      <section id="view-nodes" class="view">
+        <div class="nodes-layout">
+          <div class="node-list" id="node-list"><!-- rendered --></div>
+          <div class="panel" id="node-detail"><!-- rendered --></div>
+        </div>
+        <div class="panel">
+          <div class="panel-title"><svg class="ic"><use href="#i-grid"/></svg><h2>Node comparison</h2></div>
+          <div style="overflow-x:auto">
+          <table class="grid matrix">
+            <thead><tr><th>Sensor</th><th class="num">node_left</th><th class="num">node_right</th><th class="num">Fleet avg</th><th>Target</th></tr></thead>
+            <tbody id="matrix-body"><!-- rendered --></tbody>
+          </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ══ EVENTS ══ -->
+      <section id="view-events" class="view">
+        <div class="panel">
+          <div class="panel-title"><svg class="ic"><use href="#i-pulse"/></svg><h2>Events</h2>
+            <span class="spacer"></span>
+            <div class="filters" id="ev-filters">
+              <button class="fchip active" data-f="all">All</button>
+              <button class="fchip" data-f="info">Info</button>
+              <button class="fchip" data-f="warn">Warnings</button>
+              <button class="fchip" data-f="error">Errors</button>
+            </div>
+          </div>
+          <div class="act-feed" id="events-feed"><!-- rendered --></div>
+        </div>
+      </section>
+
+      <!-- ══ READINGS ══ -->
+      <section id="view-readings" class="view">
+        <div class="panel">
+          <div class="panel-title"><svg class="ic"><use href="#i-clip"/></svg><h2>Manual readings</h2></div>
+          <p class="dim" style="font-size:13px;margin:-6px 0 6px">Enter values from handheld meters. In the live app each value is saved to history and published to MQTT immediately.</p>
+        </div>
+        <div id="readings-groups" style="display:flex;flex-direction:column;gap:14px"><!-- rendered --></div>
+      </section>
+
+      <div class="footer-note">Static review mockup · sample data only · <b>design/muse-iot-ui-review.html</b> — not wired to the app</div>
+    </main>
+  </div>
+</div>
+
+<script>
+/* ══ Sample data ══ */
+const SENSORS = [
+  {id:'dht11_temp', label:'Temperature', icon:'i-therm', unit:'°C', color:'#f0a35c',
+   value:29.4, min:0, max:50, target:[20,28], trend:+0.8, age:18, status:'bad'},
+  {id:'dht11_humidity', label:'Humidity', icon:'i-drop', unit:'%', color:'#5aa9ff',
+   value:62.0, min:0, max:100, target:[55,75], trend:-1.2, age:18, status:'ok'},
+  {id:'soil_resistive', label:'Soil moisture', icon:'i-leaf', unit:'%', color:'#46d18c',
+   value:52.3, min:0, max:100, target:[55,70], trend:-2.1, age:42, status:'warn'},
+];
+const PHASES = [
+  {name:'germination', days:[0,7], status:'done', targets:{dht11_temp:[22,28],dht11_humidity:[70,90],soil_resistive:[65,80]}, notes:'Keep dome on until first true leaves.'},
+  {name:'seedling', days:[8,14], status:'done', targets:{dht11_temp:[20,28],dht11_humidity:[60,80],soil_resistive:[60,75]}, notes:'Harden off before full sun.'},
+  {name:'vegetative', days:[15,35], status:'now', targets:{dht11_temp:[20,28],dht11_humidity:[55,75],soil_resistive:[55,70]}, notes:'Keep canopy under 28°C and soil evenly moist.'},
+  {name:'harvest', days:[36,45], status:'next', targets:{dht11_temp:[18,27],dht11_humidity:[55,75],soil_resistive:[55,70]}, notes:'Pick outer leaves first.'},
+];
+const DAY = 23, DAY_MAX = 45;
+const ACTUATORS = [
+  {id:'relay_pump', name:'Water pump', icon:'i-drop', on:false, age:'26m ago'},
+  {id:'relay_fan', name:'Cooling fan', icon:'i-fan', on:true, age:'3m ago'},
+];
+const DECISIONS = [
+  {ts:'Oct 31, 14:32', phase:'vegetative', cmds:{relay_pump:'off',relay_fan:'on'}, reason:'Canopy 29.4°C above the 28° ceiling — fan stays on. Soil 52% below target but pump ran 26 min ago; holding off.', model:'spark-1.3 · 842ms', ovr:false},
+  {ts:'Oct 31, 14:30', phase:'vegetative', cmds:{relay_pump:'off',relay_fan:'on'}, reason:'No material change since last poll; keeping fan on through the hot spell.', model:'spark-1.3 · 790ms', ovr:false},
+  {ts:'Oct 31, 14:28', phase:'vegetative', cmds:{relay_pump:'off',relay_fan:'on'}, reason:'Soil dipped to 51%. Pump requested by schedule but 26-min cooldown not elapsed.', model:'spark-1.3 · 811ms', ovr:false},
+  {ts:'Oct 31, 11:04', phase:'vegetative', cmds:{relay_pump:'off',relay_fan:'off'}, reason:'LLM requested pump on, but soil read 81% — safety held the pump off.', model:'spark-1.3 · 905ms', ovr:true},
+  {ts:'Oct 31, 09:02', phase:'vegetative', cmds:{relay_pump:'off',relay_fan:'off'}, reason:'Morning readings nominal. All targets met; no actuation needed.', model:'spark-1.3 · 768ms', ovr:false},
+  {ts:'Oct 31, 06:30', phase:'vegetative', cmds:{relay_pump:'on',relay_fan:'off'}, reason:'Soil 54% at dawn with rising sun ahead — 4-minute soak scheduled.', model:'spark-1.3 · 833ms', ovr:false},
+  {ts:'Oct 30, 22:15', phase:'vegetative', cmds:{relay_pump:'off',relay_fan:'off'}, reason:'Night period. Humidity 71% — no action; watching for condensation risk.', model:'spark-1.3 · 779ms', ovr:false},
+  {ts:'Oct 30, 18:40', phase:'vegetative', cmds:{relay_pump:'off',relay_fan:'on'}, reason:'Evening heat residual 28.6°C — fan on until canopy drops below 27°.', model:'spark-1.3 · 856ms', ovr:false},
+];
+const EVENTS = [
+  {sev:'info', icon:'i-plug', type:'ACTUATOR_FIRED', ts:'14:29', note:'relay_fan=on'},
+  {sev:'warn', icon:'i-warn', type:'SENSOR_ANOMALY', ts:'14:12', note:'dht11_temp 29.4°C outside 3σ of 24h window'},
+  {sev:'info', icon:'i-eye', type:'OBSERVATION', ts:'13:47', note:'“Slight curling on new leaves”'},
+  {sev:'warn', icon:'i-shield', type:'SAFETY_OVERRIDE', ts:'11:04', note:'relay_pump forced OFF: soil 81% ≥ limit 78%'},
+  {sev:'info', icon:'i-info', type:'REFLECTION', ts:'12:00', note:'6h synthesis: 3 plant-health insights stored'},
+  {sev:'info', icon:'i-plug', type:'ACTUATOR_FIRED', ts:'06:30', note:'relay_pump=on (4-min soak)'},
+  {sev:'error', icon:'i-x', type:'POLL_ERROR', ts:'04:18', note:'MQTT read timeout on node_right — recovered next poll'},
+  {sev:'info', icon:'i-info', type:'DOMAIN_STARTED', ts:'Oct 8', note:'New session — domain=smart_garden, profile=swiss_chard'},
+];
+const CHAT = [
+  {r:'u', who:'You', ts:'13:47', text:'Slight curling on new leaves'},
+  {r:'sys', text:'Saved as observation — included in the next poll context'},
+  {r:'u', who:'You', ts:'14:05', text:'Why is the fan running so much today?'},
+  {r:'a', who:'Muse · spark-1.3', ts:'14:05', html:'<p>Canopy temperature has been above your 28°C ceiling since 11:40 — currently <code>29.4°C</code> and rising <code>+0.8°/day</code>.</p><ul><li>Humidity is fine at <code>62%</code> (target 55–75)</li><li>Soil is a touch dry at <code>52%</code> (target 55–70)</li></ul><p>The fan is the correct call. The pump is holding because it ran 26 minutes ago.</p>'},
+];
+const READ_GROUPS = [
+  {plugin:'DHT11 · air sensor', items:[
+    {id:'t', name:'Air temperature', unit:'°C', cur:'29.4 °C · 18s ago', min:0, max:50},
+    {id:'h', name:'Air humidity', unit:'%', cur:'62.0 % · 18s ago', min:0, max:100},
+  ]},
+  {plugin:'Resistive soil probe', hint:'Values drift as the probe corrodes — recalibrate monthly against a finger test.', items:[
+    {id:'s', name:'Soil moisture', unit:'%', cur:'52.3 % · 42s ago', min:0, max:100},
+  ]},
+];
+
+/* ══ Helpers ══ */
+const $ = s => document.querySelector(s);
+const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* ══ View router ══ */
+const TITLES = {dashboard:'Dashboard', nodes:'Nodes', profile:'Profile', chat:'Chat', decisions:'Decisions', events:'Events', readings:'Readings'};
+function goto(view){
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.view === view));
+  document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === 'view-' + view));
+  $('#view-title').textContent = TITLES[view];
+  if (view === 'dashboard') drawChart();
+  if (view === 'chat') { const log = $('#chat-log'); log.scrollTop = log.scrollHeight; }
+  window.scrollTo({top:0, behavior: reducedMotion ? 'auto' : 'smooth'});
+}
+document.querySelectorAll('.nav-btn').forEach(b => b.addEventListener('click', () => goto(b.dataset.view)));
+document.querySelectorAll('[data-goto]').forEach(b => b.addEventListener('click', () => goto(b.dataset.goto)));
+
+/* ══ Dashboard: timeline + targets ══ */
+(function(){
+  $('#phase-timeline').innerHTML = PHASES.map(p => {
+    const pct = Math.max(((p.days[1]-p.days[0]) / DAY_MAX) * 100, 6);
+    return `<div class="tseg ${p.status}" style="flex:${pct}" title="${p.name}: day ${p.days[0]}–${p.days[1]}">${p.name}</div>`;
+  }).join('') + `<div class="tmarker" style="left:${Math.min(DAY/DAY_MAX*100,99)}%"><span>Day ${DAY}</span></div>`;
+  const active = PHASES.find(p => p.status === 'now');
+  $('#target-chips').innerHTML = Object.entries(active.targets).map(([sid, r]) => {
+    const s = SENSORS.find(x => x.id === sid);
+    const cls = s.value < r[0] ? 'warn' : s.value > r[1] ? (sid === 'dht11_temp' ? 'bad' : 'warn') : 'ok';
+    return `<div class="target ${cls}"><div class="t-k">${s.label}</div>
+      <div class="t-v num">${s.value.toFixed(1)} <small>${s.unit}</small></div>
+      <div class="t-r num">target ${r[0]}–${r[1]} ${s.unit}</div></div>`;
+  }).join('');
+})();
+
+/* ══ Dashboard: sensor cards ══ */
+function sparkline(color, seed){
+  const rnd = mulberry32(seed), n = 28, pts = [];
+  let v = 50;
+  for (let i = 0; i < n; i++){ v += (rnd() - 0.5) * 14; v = Math.max(6, Math.min(94, v)); pts.push(`${(i/(n-1)*100).toFixed(1)},${(100-v).toFixed(1)}`); }
+  return `<svg class="spark" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+    <polyline points="${pts.join(' ')}" fill="none" stroke="${color}" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" opacity=".9"/></svg>`;
+}
+function renderSensors(){
+  $('#sensor-grid').innerHTML = SENSORS.map((s, i) => {
+    const sc = v => Math.min(Math.max((v - s.min) / (s.max - s.min) * 100, 0), 100);
+    const tL = sc(s.target[0]), tW = sc(s.target[1]) - tL, vP = sc(s.value);
+    const stLabel = s.status === 'ok' ? 'in range' : s.status === 'warn' ? (s.value < s.target[0] ? 'low' : 'high') : 'high';
+    const trCls = s.trend > 0 ? 'up' : s.trend < 0 ? 'down' : '';
+    const trIc = s.trend !== 0 ? `<svg class="ic" style="width:11px;height:11px"><use href="#${s.trend > 0 ? 'i-up' : 'i-down'}"/></svg>` : '';
+    return `<div class="sensor"><div class="sensor-top"><svg class="ic"><use href="#${s.icon}"/></svg>${s.label}
+        <span class="st ${s.status}">${stLabel}</span></div>
+      <div class="sensor-val num">${s.value.toFixed(1)}<small>${s.unit}</small></div>
+      <div class="sensor-trend ${trCls}">${trIc}${s.trend !== 0 ? `${Math.abs(s.trend).toFixed(1)}/day` : 'stable'} · 7d</div>
+      ${sparkline(s.color, 100 + i)}
+      <div class="rbar"><div class="zone" style="left:${tL}%;width:${tW}%"></div>
+        <div class="val ${s.status === 'ok' ? '' : s.status}" style="left:${vP}%"></div></div>
+      <div class="sensor-meta num">avg of 2 nodes · target ${s.target[0]}–${s.target[1]} ${s.unit} · <span data-age="${s.id}">${s.age}s ago</span></div>
+    </div>`;
+  }).join('');
+}
+renderSensors();
+
+/* ══ Dashboard: actuators ══ */
+function renderActuators(){
+  $('#actuator-list').innerHTML = ACTUATORS.map(a => `
+    <div class="act-row ${a.on ? 'is-on' : ''}">
+      <span class="act-ic"><svg class="ic"><use href="#${a.icon}"/></svg></span>
+      <div class="act-info"><div class="act-name">${a.name}</div>
+        <div class="act-sub num">${a.on ? 'ON' : 'OFF'} · ${a.age} · ${a.id}</div></div>
+      <label class="switch"><input type="checkbox" data-act="${a.id}" ${a.on ? 'checked' : ''} aria-label="${a.name}">
+        <span class="sw-track"></span><span class="sw-thumb"></span></label>
+    </div>`).join('');
+  document.querySelectorAll('[data-act]').forEach(el => el.addEventListener('change', () => {
+    const a = ACTUATORS.find(x => x.id === el.dataset.act);
+    a.on = el.checked; a.age = 'just now';
+    el.closest('.act-row').classList.toggle('is-on', a.on);
+    el.closest('.act-row').querySelector('.act-sub').innerHTML = `${a.on ? 'ON' : 'OFF'} · just now · ${a.id} <span style="color:var(--faint)">(mock)</span>`;
+    renderNodeDetail();
+  }));
+}
+renderActuators();
+
+/* ══ Nodes ══ */
+const NODES = [
+  {id:'node_left', adapter:'esp32_mqtt · ESP8266', broker:'192.168.1.4:1883', rssi:'−58 dBm', uptime:'6d 4h', fw:'v1.2.0', age:12,
+   sensors:[
+     {sid:'dht11_temp', value:29.8},
+     {sid:'dht11_humidity', value:60.4},
+     {sid:'soil_resistive', value:50.1},
+   ], actuators:['relay_pump']},
+  {id:'node_right', adapter:'esp32_mqtt · ESP8266', broker:'192.168.1.4:1883', rssi:'−63 dBm', uptime:'6d 4h', fw:'v1.2.0', age:9,
+   sensors:[
+     {sid:'dht11_temp', value:29.0},
+     {sid:'dht11_humidity', value:63.6},
+     {sid:'soil_resistive', value:54.5},
+   ], actuators:['relay_fan']},
+];
+let activeNode = 'node_left';
+const nodeById = id => NODES.find(n => n.id === id);
+const sensById = sid => SENSORS.find(s => s.id === sid);
+function nodeSensStatus(sid, v){
+  const t = sensById(sid).target;
+  if (v < t[0]) return 'warn';
+  if (v > t[1]) return sid === 'dht11_temp' ? 'bad' : 'warn';
+  return 'ok';
+}
+function renderNodeSummary(){
+  $('#node-summary').innerHTML = NODES.map(n => `
+    <button class="node-sum-row" data-nodesum="${n.id}">
+      <span class="node-dot"></span>
+      <span><span class="n-id">${n.id}</span><br>
+      <span class="n-sub">${n.adapter} · ${n.sensors.length} sensors · ${n.actuators.length} actuator${n.actuators.length === 1 ? '' : 's'}</span></span>
+      <span class="go num"><span data-nodeage="${n.id}">${n.age}s ago</span> · Details →</span>
+    </button>`).join('');
+  document.querySelectorAll('[data-nodesum]').forEach(b => b.addEventListener('click', () => {
+    selectNode(b.dataset.nodesum); goto('nodes');
+  }));
+}
+function renderNodeList(){
+  $('#node-list').innerHTML = NODES.map(n => `
+    <button class="node-item ${n.id === activeNode ? 'active' : ''}" data-node="${n.id}">
+      <span class="node-dot"></span>
+      <span><span class="n-id">${n.id}</span>
+      <span class="n-sub">${n.sensors.length} sensors · seen <span data-nodeage="${n.id}">${n.age}s ago</span></span></span>
+    </button>`).join('');
+  document.querySelectorAll('[data-node]').forEach(b => b.addEventListener('click', () => selectNode(b.dataset.node)));
+}
+function renderNodeDetail(){
+  const el = $('#node-detail');
+  if (!el) return;
+  const n = nodeById(activeNode);
+  const cards = n.sensors.map(ns => {
+    const s = sensById(ns.sid), st = nodeSensStatus(ns.sid, ns.value);
+    return `<div class="nsensor ${st}"><div class="t-k"><svg class="ic" style="width:13px;height:13px"><use href="#${s.icon}"/></svg>${s.label}</div>
+      <div class="t-v num">${ns.value.toFixed(1)} <small>${s.unit}</small></div>
+      <div class="t-r num">target ${s.target[0]}–${s.target[1]} ${s.unit}</div></div>`;
+  }).join('');
+  const acts = n.actuators.map(aid => {
+    const a = ACTUATORS.find(x => x.id === aid);
+    return `<div class="act-row ${a.on ? 'is-on' : ''}">
+      <span class="act-ic"><svg class="ic"><use href="#${a.icon}"/></svg></span>
+      <div class="act-info"><div class="act-name">${a.name}</div>
+        <div class="act-sub num">${a.on ? 'ON' : 'OFF'} · ${a.age} · ${a.id}</div></div>
+      <label class="switch"><input type="checkbox" data-nact="${a.id}" ${a.on ? 'checked' : ''} aria-label="${a.name}">
+        <span class="sw-track"></span><span class="sw-thumb"></span></label>
+    </div>`;
+  }).join('') || '<div class="dim" style="font-size:13px">No actuators assigned to this node.</div>';
+  el.innerHTML = `
+    <div class="nd-head"><span class="node-dot"></span><h2>${n.id}</h2>
+      <span class="chip green" style="font-size:11px">online</span>
+      <span class="dim num" style="font-size:12px;margin-left:auto">seen <span data-nodeage="${n.id}">${n.age}s ago</span></span></div>
+    <div class="nd-meta">
+      <div class="m"><div class="k">Adapter</div><div class="v">${n.adapter}</div></div>
+      <div class="m"><div class="k">Broker</div><div class="v">${n.broker}</div></div>
+      <div class="m"><div class="k">Topic root</div><div class="v">…/nodes/${n.id}/#</div></div>
+      <div class="m"><div class="k">Signal</div><div class="v">${n.rssi}</div></div>
+      <div class="m"><div class="k">Uptime</div><div class="v">${n.uptime}</div></div>
+      <div class="m"><div class="k">Firmware</div><div class="v">${n.fw}</div></div>
+    </div>
+    <div class="nd-sub">Sensors on this node</div>
+    <div class="node-sensors">${cards}</div>
+    <div class="nd-sub">Actuators on this node</div>
+    <div>${acts}</div>`;
+  el.querySelectorAll('[data-nact]').forEach(sw => sw.addEventListener('change', () => {
+    const a = ACTUATORS.find(x => x.id === sw.dataset.nact);
+    a.on = sw.checked; a.age = 'just now';
+    renderActuators(); renderNodeDetail();
+  }));
+}
+function renderMatrix(){
+  $('#matrix-body').innerHTML = SENSORS.map(s => {
+    const vals = NODES.map(n => n.sensors.find(x => x.sid === s.id).value);
+    return `<tr><td>${s.label} <span class="dim">(${s.unit})</span></td>
+      <td class="num">${vals[0].toFixed(1)}</td><td class="num">${vals[1].toFixed(1)}</td>
+      <td class="num avg">${s.value.toFixed(1)}</td>
+      <td class="dim num" style="font-size:12px">${s.target[0]}–${s.target[1]} ${s.unit}</td></tr>`;
+  }).join('');
+}
+function selectNode(id){ activeNode = id; renderNodeList(); renderNodeDetail(); }
+renderNodeSummary(); renderNodeList(); renderNodeDetail(); renderMatrix();
+
+/* ══ Activity feeds ══ */
+const sevIcon = {info:'i-info', warn:'i-warn', error:'i-x'};
+const sevCls = {info:'fi-info', warn:'fi-warn', error:'fi-err'};
+function feedRow(e){
+  return `<div class="feed-row"><span class="feed-ic ${sevCls[e.sev]}"><svg class="ic"><use href="#${e.icon}"/></svg></span>
+    <div class="feed-body"><span class="feed-type">${e.type.replace(/_/g,' ')}</span>
+    <div class="feed-note">${e.note}</div></div>
+    <span class="feed-ts num">${e.ts}</span></div>`;
+}
+$('#recent-feed').innerHTML = EVENTS.slice(0, 5).map(feedRow).join('');
+
+/* ══ Events view ══ */
+let evFilter = 'all';
+function renderEvents(){
+  const rows = EVENTS.filter(e => evFilter === 'all' || e.sev === evFilter);
+  $('#events-feed').innerHTML = rows.length ? rows.map(feedRow).join('')
+    : '<div class="dim" style="padding:20px;text-align:center">No events match this filter</div>';
+}
+renderEvents();
+document.querySelectorAll('#ev-filters .fchip').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('#ev-filters .fchip').forEach(x => x.classList.remove('active'));
+  b.classList.add('active'); evFilter = b.dataset.f; renderEvents();
+}));
+
+/* ══ Decisions view ══ */
+let decFilter = 'all';
+function renderDecisions(){
+  const rows = DECISIONS.filter(d => decFilter === 'all' || d.ovr);
+  $('#decisions-body').innerHTML = rows.map(d => {
+    const cmds = Object.entries(d.cmds).map(([k,v]) =>
+      `<span class="cmd ${v === 'on' ? 'on' : 'off'}">${k.replace('relay_','')}: ${v}</span>`).join('');
+    return `<tr class="${d.ovr ? 'hl' : ''}"><td class="ts">${d.ts}</td>
+      <td><span class="phase-tag">${d.phase}</span></td>
+      <td><div class="cmds mini">${cmds}</div>${d.ovr ? '<span class="ovr">SAFETY OVERRIDE</span>' : ''}</td>
+      <td><span class="rsn">${d.reason}</span></td>
+      <td class="model-cell">muse-${d.model}</td></tr>`;
+  }).join('');
+}
+renderDecisions();
+document.querySelectorAll('#dec-filters .fchip').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('#dec-filters .fchip').forEach(x => x.classList.remove('active'));
+  b.classList.add('active'); decFilter = b.dataset.f; renderDecisions();
+}));
+
+/* ══ Profile view ══ */
+$('#phases-list').innerHTML = PHASES.map(p => {
+  const rows = Object.entries(p.targets).map(([sid, r]) => {
+    const s = SENSORS.find(x => x.id === sid);
+    const sc = v => Math.min(Math.max((v - s.min) / (s.max - s.min) * 100, 0), 100);
+    const show = p.status === 'now';
+    const st = s.value < r[0] ? 'low' : s.value > r[1] ? 'high' : 'ok';
+    return `<div class="pt-row"><span>${s.label}</span><span class="rng num">${r[0]}–${r[1]} ${s.unit}</span>
+      <div class="rbar" style="margin:0"><div class="zone" style="left:${sc(r[0])}%;width:${sc(r[1])-sc(r[0])}%"></div>
+      ${show ? `<div class="val ${st === 'ok' ? '' : st === 'low' ? 'warn' : 'bad'}" style="left:${sc(s.value)}%"></div>` : ''}</div>
+      <span class="cur ${show ? st : ''} num">${show ? s.value.toFixed(1) : ''}</span></div>`;
+  }).join('');
+  return `<div class="phase-block ${p.status}"><div class="pb-head"><span class="pb-dot"></span>
+    <span class="pb-name">${p.name}</span><span class="pb-days">day ${p.days[0]}–${p.days[1]}</span></div>
+    <div class="pb-notes">${p.notes}</div>${rows}</div>`;
+}).join('');
+/* ══ Chart (hand-rolled SVG, dual axis) ══ */
+let chartHours = 24, chartData = null;
+function genSeries(hours){
+  const stepMin = hours <= 1 ? 2 : hours <= 6 ? 10 : hours <= 24 ? 20 : 120;
+  const n = Math.min(Math.floor(hours * 60 / stepMin), 220);
+  const now = Date.now(), rnd = mulberry32(7 + hours);
+  const mk = (base, amp, drift) => {
+    const pts = []; let v = base;
+    for (let i = 0; i < n; i++){
+      const t = i / (n - 1), wave = Math.sin(t * Math.PI * 2 * (hours / 24 || .2)) * amp;
+      v += (rnd() - 0.5) * amp * 0.35; v = Math.max(-amp * 1.2, Math.min(amp * 1.2, v));
+      pts.push({ts: now - (n - 1 - i) * stepMin * 60000, v: base + wave + v * 0.4 + drift * t});
+    }
+    return pts;
+  };
+  return {
+    temp: mk(27.5, 3.2, 1.2),
+    hum: mk(64, 9, -3),
+    soil: mk(57, 5, -4.5),
+  };
+}
+function drawChart(){
+  const svg = $('#chart'), tip = $('#chart-tip');
+  const W = svg.clientWidth || 900, H = 260, P = {l:38, r:38, t:12, b:26};
+  const iw = W - P.l - P.r, ih = H - P.t - P.b;
+  chartData = genSeries(chartHours);
+  const tMin = 15, tMax = 36, pMin = 0, pMax = 100;
+  const X = ts => P.l + ((ts - chartData.temp[0].ts) / (chartData.temp.at(-1).ts - chartData.temp[0].ts)) * iw;
+  const Yt = v => P.t + (1 - (v - tMin) / (tMax - tMin)) * ih;
+  const Yp = v => P.t + (1 - (v - pMin) / (pMax - pMin)) * ih;
+  const line = (pts, Y) => pts.map((p, i) => `${i ? 'L' : 'M'}${X(p.ts).toFixed(1)},${Y(p.v).toFixed(1)}`).join(' ');
+  let grid = '';
+  for (let g = 0; g <= 4; g++){
+    const y = P.t + (g / 4) * ih;
+    grid += `<line x1="${P.l}" y1="${y}" x2="${W - P.r}" y2="${y}" stroke="#1a221c" stroke-width="1"/>
+      <text x="${P.l - 7}" y="${y + 4}" text-anchor="end" font-size="10" fill="#68736a" font-family="inherit">${(tMax - (tMax - tMin) * g / 4).toFixed(0)}°</text>
+      <text x="${W - P.r + 7}" y="${y + 4}" font-size="10" fill="#68736a" font-family="inherit">${(pMax - (pMax - pMin) * g / 4).toFixed(0)}</text>`;
+  }
+  const nT = 6;
+  for (let g = 0; g < nT; g++){
+    const ts = chartData.temp[0].ts + (chartData.temp.at(-1).ts - chartData.temp[0].ts) * g / (nT - 1);
+    const d = new Date(ts), lbl = chartHours > 48 ? d.toLocaleDateString([], {month:'short', day:'numeric'})
+      : d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+    grid += `<text x="${P.l + (g / (nT - 1)) * iw}" y="${H - 6}" text-anchor="middle" font-size="10" fill="#68736a" font-family="inherit">${lbl}</text>`;
+  }
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  svg.innerHTML = `${grid}
+    <path d="${line(chartData.hum, Yp)}" fill="none" stroke="#5aa9ff" stroke-width="1.8" opacity=".85"/>
+    <path d="${line(chartData.soil, Yp)}" fill="none" stroke="#46d18c" stroke-width="1.8" opacity=".85"/>
+    <path d="${line(chartData.temp, Yt)}" fill="none" stroke="#f0a35c" stroke-width="2.2"/>
+    <line id="ch-x" y1="${P.t}" y2="${P.t + ih}" stroke="#3a453d" stroke-width="1" style="display:none"/>
+    <circle id="ch-d0" r="3.5" fill="#f0a35c" style="display:none"/>
+    <circle id="ch-d1" r="3.5" fill="#5aa9ff" style="display:none"/>
+    <circle id="ch-d2" r="3.5" fill="#46d18c" style="display:none"/>`;
+  const lx = svg.querySelector('#ch-x'), dots = [svg.querySelector('#ch-d0'), svg.querySelector('#ch-d1'), svg.querySelector('#ch-d2')];
+  svg.onmousemove = ev => {
+    const r = svg.getBoundingClientRect(), mx = (ev.clientX - r.left) * (W / r.width);
+    let best = 0, bd = 1e9;
+    chartData.temp.forEach((p, i) => { const d = Math.abs(X(p.ts) - mx); if (d < bd){ bd = d; best = i; } });
+    const cx = X(chartData.temp[best].ts);
+    lx.setAttribute('x1', cx); lx.setAttribute('x2', cx); lx.style.display = '';
+    const vals = [[chartData.temp[best].v, Yt, '°C'], [chartData.hum[best].v, Yp, '%'], [chartData.soil[best].v, Yp, '%']];
+    dots.forEach((c, i) => { c.setAttribute('cx', cx); c.setAttribute('cy', vals[i][1](vals[i][0])); c.style.display = ''; });
+    const d = new Date(chartData.temp[best].ts);
+    tip.innerHTML = `<div class="tt num">${d.toLocaleString([], {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'})}</div>
+      <span style="color:#f0a35c">●</span> <span class="num">${vals[0][0].toFixed(1)}°C</span><br>
+      <span style="color:#5aa9ff">●</span> <span class="num">${vals[1][0].toFixed(1)}%</span><br>
+      <span style="color:#46d18c">●</span> <span class="num">${vals[2][0].toFixed(1)}%</span>`;
+    tip.style.display = 'block';
+    const px = cx / W * r.width;
+    tip.style.left = Math.min(px + 14, r.width - 150) + 'px';
+    tip.style.top = '10px';
+  };
+  svg.onmouseleave = () => { tip.style.display = 'none'; lx.style.display = 'none'; dots.forEach(c => c.style.display = 'none'); };
+}
+document.querySelectorAll('#range-seg button').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('#range-seg button').forEach(x => x.classList.remove('active'));
+  b.classList.add('active'); chartHours = +b.dataset.h; drawChart();
+}));
+window.addEventListener('resize', () => { if (document.querySelector('#view-dashboard.active')) drawChart(); });
+
+/* ══ Chat ══ */
+function renderChat(){
+  $('#chat-log').innerHTML = CHAT.map(m => {
+    if (m.r === 'sys') return `<div class="sys">${m.text} (mock)</div>`;
+    const body = m.html ? `<div class="bubble">${m.html}</div>` : `<div class="bubble"><p>${esc(m.text)}</p></div>`;
+    return `<div class="msg ${m.r}"><div class="msg-meta"><span class="num">${m.ts}</span><span class="who">${m.who}</span></div>${body}</div>`;
+  }).join('');
+  const log = $('#chat-log'); log.scrollTop = log.scrollHeight;
+}
+renderChat();
+function nowTs(){ return new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}); }
+function mockReply(text){
+  const low = text.toLowerCase();
+  if (/\b(pump|fan|light)\b/.test(low) && /\b(on|off|start|stop)\b/.test(low)){
+    const dev = /pump/.test(low) ? 'relay_pump' : /fan/.test(low) ? 'relay_fan' : 'pwm_light';
+    const val = /\b(on|start)\b/.test(low) ? 'on' : 'off';
+    return {sys:false, html:`<p>Sent: <code>${dev}</code> → <code>${val}</code> <span class="dim">(mock — nothing published)</span></p>`};
+  }
+  if (text.trim().endsWith('?'))
+    return {sys:false, html:`<p>Based on current readings — <code>29.4°C</code>, <code>62%</code> humidity, <code>52%</code> soil — the box is running hot but stable. The fan is on and the next poll is in about a minute. <span class="dim">(mock answer)</span></p>`};
+  return {sys:true, text:'Saved as observation — included in the next poll context'};
+}
+function sendChat(){
+  const inp = $('#chat-in'), text = inp.value.trim();
+  if (!text) return;
+  inp.value = '';
+  CHAT.push({r:'u', who:'You', ts:nowTs(), text});
+  renderChat();
+  const log = $('#chat-log');
+  const tp = document.createElement('div');
+  tp.className = 'msg a'; tp.innerHTML = '<div class="bubble typing"><i></i><i></i><i></i></div>';
+  log.appendChild(tp); log.scrollTop = log.scrollHeight;
+  setTimeout(() => {
+    tp.remove();
+    const rep = mockReply(text);
+    CHAT.push(rep.sys ? {r:'sys', text:rep.text} : {r:'a', who:'Muse · spark-1.3', ts:nowTs(), html:rep.html});
+    renderChat();
+  }, reducedMotion ? 60 : 900);
+}
+$('#chat-send').addEventListener('click', sendChat);
+$('#chat-in').addEventListener('keydown', e => { if (e.key === 'Enter') sendChat(); });
+
+/* ══ Readings ══ */
+$('#readings-groups').innerHTML = READ_GROUPS.map((g, gi) => `
+  <div class="panel read-group"><div class="panel-title"><h2 style="font-size:13px">${g.plugin}</h2></div>
+  ${g.items.map(it => `
+    <div class="read-row"><div><div class="read-name">${it.name} <span class="dim" style="font-weight:400">(${it.unit})</span></div>
+        <div class="read-sub">current <span class="cur-now num" id="cur-${gi}-${it.id}">${it.cur}</span></div></div>
+      <input class="read-in num" type="number" step="any" min="${it.min}" max="${it.max}" placeholder="${it.min} – ${it.max}"
+        id="in-${gi}-${it.id}" aria-label="${it.name}">
+      <button class="btn ghost" data-save="${gi}-${it.id}" data-unit="${it.unit}" style="justify-content:center">Save</button>
+      <div class="read-fb" id="fb-${gi}-${it.id}"></div>
+    </div>`).join('')}
+  ${g.hint ? `<div class="read-hint">${g.hint}</div>` : ''}</div>`).join('');
+document.querySelectorAll('[data-save]').forEach(b => b.addEventListener('click', () => {
+  const key = b.dataset.save, inp = $('#in-' + key), fb = $('#fb-' + key);
+  const v = parseFloat(inp.value);
+  if (inp.value.trim() === '' || isNaN(v)){ fb.textContent = 'Enter a number'; fb.classList.add('err'); return; }
+  fb.classList.remove('err');
+  fb.textContent = '✓ Saved (mock)';
+  $('#cur-' + key).textContent = `${v.toFixed(1)} ${b.dataset.unit} · just now`;
+  inp.value = '';
+  setTimeout(() => fb.textContent = '', 3000);
+}));
+
+/* ══ Live simulation: tick ages + jitter sensors ══ */
+let pollAge = 38;
+setInterval(() => {
+  pollAge += 5;
+  if (pollAge >= 120){
+    pollAge = 0;
+    NODES.forEach(n => { n.age = 0; n.sensors.forEach(ns => ns.value += (Math.random() - 0.5) * 0.4); });
+    SENSORS.forEach(s => {
+      const vs = NODES.map(n => n.sensors.find(x => x.sid === s.id).value);
+      s.age = 0; s.value = vs.reduce((a, b) => a + b, 0) / vs.length;
+    });
+    renderSensors(); renderNodeList(); renderNodeSummary(); renderNodeDetail(); renderMatrix();
+  }
+  const lp = $('#last-poll');
+  if (lp) lp.innerHTML = `${pollAge}s <span class="unit">ago</span>`;
+  const np = $('#next-poll'), left = 120 - pollAge;
+  if (np) np.textContent = `${Math.floor(left / 60)}m ${String(left % 60).padStart(2, '0')}s`;
+  SENSORS.forEach(s => { s.age += 5; });
+  NODES.forEach(n => { n.age += 5; });
+  document.querySelectorAll('[data-age]').forEach(el => {
+    const s = SENSORS.find(x => x.id === el.dataset.age);
+    if (s) el.textContent = `${s.age}s ago`;
+  });
+  document.querySelectorAll('[data-nodeage]').forEach(el => {
+    const n = nodeById(el.dataset.nodeage);
+    if (n) el.textContent = `${n.age}s ago`;
+  });
+}, reducedMotion ? 30000 : 5000);
+
+/* ══ Init ══ */
+drawChart();
+</script>
+</body>
+</html>

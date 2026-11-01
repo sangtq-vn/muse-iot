@@ -21,6 +21,7 @@ from pydantic import BaseModel
 
 from core.history.backends.sqlite_backend import SQLiteHistoryStore
 from core.history.ihistory_store import Event, SensorReading
+from core.web.nodes import build_nodes
 
 log = logging.getLogger("muse-iot.web")
 
@@ -370,6 +371,40 @@ def get_actuators():
             "ts":    ts,
         })
     return result
+
+
+@app.get("/api/nodes")
+def get_nodes():
+    """Per-node detail: latest sensors, actuator ownership, online state."""
+    if not _history:
+        return []
+    rows = _history.conn.execute(
+        """SELECT sensor_id, value, ts, unit FROM sensor_readings
+           WHERE box_id=? AND ts=(
+             SELECT MAX(ts) FROM sensor_readings s2
+             WHERE s2.sensor_id=sensor_readings.sensor_id
+               AND s2.box_id=sensor_readings.box_id
+           )""",
+        (_box(),),
+    ).fetchall()
+    latest = {
+        r["sensor_id"]: {"value": r["value"], "ts": r["ts"], "unit": r["unit"] or ""}
+        for r in rows
+    }
+    states: dict = {}
+    for a in _domain_cfg.get("actuators", []):
+        aid = a["id"]
+        row = _history.conn.execute(
+            "SELECT note, ts FROM events WHERE box_id=? AND type='ACTUATOR_FIRED' "
+            "AND note LIKE ? ORDER BY ts DESC LIMIT 1",
+            (_box(), f"{aid}=%"),
+        ).fetchone()
+        if row:
+            val = row["note"].split("=", 1)[-1].split()[0]
+            states[aid] = {"state": val, "ts": row["ts"]}
+        else:
+            states[aid] = {"state": "unknown", "ts": None}
+    return build_nodes(_config, latest, states)
 
 
 class ActuatorRequest(BaseModel):

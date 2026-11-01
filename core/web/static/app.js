@@ -1,770 +1,906 @@
-/* Muse-IoT Web UI — vanilla JS, no framework */
+/* Muse-IoT Web UI — vanilla JS, no dependencies (works offline) */
 
-// ── Sensor display config ─────────────────────────────────────────────────────
-const SENSOR_META = {
-  dht11_temp:     { label: 'Temperature', unit: '°C', color: '#fb923c', axis: 'y1', min: 0,  max: 50  },
-  dht11_humidity: { label: 'Humidity',    unit: '%',  color: '#60a5fa', axis: 'y2', min: 0,  max: 100 },
-  soil_resistive: { label: 'Soil',        unit: '%',  color: '#4ade80', axis: 'y2', min: 0,  max: 100 },
+// ── Sensor presentation ─────────────────────────────────────────────────────
+const PALETTE = ['#f0a35c', '#5aa9ff', '#46d18c', '#e8c33d', '#ef6f6f', '#4fd1c5'];
+const UNIT_DISPLAY = {
+  celsius: '°C', fahrenheit: '°F', percent: '%', mmHg: 'mmHg',
+  bpm: 'bpm', lux: 'lux', ppm: 'ppm', '°C': '°C', '°F': '°F', '%': '%',
 };
+const COLOR_BY_SID = {};   // assigned stable colors per sensor id
+let colorIdx = 0;
 
-function sensorMeta(id) {
-  if (SENSOR_META[id]) return SENSOR_META[id];
-  // Generic fallback for unknown sensors
-  return { label: id, unit: '', color: '#a78bfa', axis: 'y2', min: 0, max: 100 };
+function unitLabel(unit) { return UNIT_DISPLAY[unit] || unit || ''; }
+
+function sensorIcon(sid) {
+  const s = sid.toLowerCase();
+  if (s.includes('temp')) return 'i-therm';
+  if (s.includes('humid')) return 'i-drop';
+  if (s.includes('soil') || s.includes('moist')) return 'i-leaf';
+  if (s.includes('lux') || s.includes('light')) return 'i-bulb';
+  if (s.includes('press')) return 'i-pulse';
+  return 'i-pulse';
 }
 
-// ── State ─────────────────────────────────────────────────────────────────────
+function sensorColor(sid) {
+  if (!COLOR_BY_SID[sid]) COLOR_BY_SID[sid] = PALETTE[colorIdx++ % PALETTE.length];
+  return COLOR_BY_SID[sid];
+}
+
+function actuatorIcon(aid) {
+  const s = aid.toLowerCase();
+  if (s.includes('pump') || s.includes('water')) return 'i-drop';
+  if (s.includes('fan')) return 'i-fan';
+  if (s.includes('light') || s.includes('lamp') || s.includes('pwm')) return 'i-bulb';
+  return 'i-plug';
+}
+
+// ── State ───────────────────────────────────────────────────────────────────
 const state = {
-  activeTab:  'dashboard',
-  status:     null,
-  profile:    null,
-  sensors:    {},
-  chartHours: 24,
-  chart:      null,
+  view: 'dashboard',
+  status: null,
+  profile: null,
+  sensors: {},
+  sensorMeta: {},   // bare sid -> {name, unit, min, max, hint, plugin}
+  metaOrder: [],    // bare sids in domain order
+  nodes: [],
+  actuators: [],
+  events: [],
+  decisions: [],
+  history: {},      // sid -> {points, unit}
+  historyHours: 24,
+  chat: [],
+  evFilter: 'all',
+  decFilter: 'all',
+  activeNode: null,
 };
 
-// ── API helper ────────────────────────────────────────────────────────────────
+// ── Helpers ─────────────────────────────────────────────────────────────────
+const $ = s => document.querySelector(s);
+
 async function api(path, opts = {}) {
   const r = await fetch(path, opts);
   if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
   return r.json();
 }
 
-// ── Format helpers ────────────────────────────────────────────────────────────
-function timeAgo(sec) {
-  if (sec < 60)   return `${sec}s ago`;
-  if (sec < 3600) return `${Math.floor(sec / 60)}m ago`;
-  return `${Math.floor(sec / 3600)}h ago`;
+function esc(s) {
+  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
+
+function timeAgo(sec) {
+  sec = Math.max(0, Math.floor(sec));
+  if (sec < 60) return `${sec}s ago`;
+  if (sec < 3600) return `${Math.floor(sec / 60)}m ago`;
+  if (sec < 86400) return `${Math.floor(sec / 3600)}h ago`;
+  return `${Math.floor(sec / 86400)}d ago`;
+}
+
 function fmtDateTime(ts) {
   return new Date(ts * 1000).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
-function fmtTime(ts) {
-  return new Date(ts * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-}
-function cmdBadge(key, val) {
-  const isOn  = val === 'on';
-  const isPwm = typeof val === 'number';
-  const cls   = isPwm ? 'cmd-pwm' : isOn ? 'cmd-on' : 'cmd-off';
-  const label = isPwm ? `${key}: ${val}%` : `${key}: ${val}`;
-  return `<span class="cmd-badge ${cls}">${label}</span>`;
+
+function isTempSid(sid, unit) {
+  return sid.toLowerCase().includes('temp') || ['celsius', 'fahrenheit', '°C', '°F'].includes(unit);
 }
 
-// ── Tabs ──────────────────────────────────────────────────────────────────────
-function switchTab(name) {
-  document.querySelectorAll('.tab-btn')
-    .forEach(b => b.classList.toggle('active', b.dataset.tab === name));
-  document.querySelectorAll('.tab-pane')
-    .forEach(p => p.classList.toggle('active', p.id === `tab-${name}`));
-  state.activeTab = name;
-  if (name === 'profile')   loadProfile();
-  if (name === 'chat')      loadChat();
-  if (name === 'decisions') loadDecisions();
-  if (name === 'events')    loadEvents();
-  if (name === 'readings')  loadReadings();
+/** Bare aggregate ids only — drops {node}_* and *_min/*_max keys. */
+function aggregateIds(allIds) {
+  if (state.metaOrder.length) return state.metaOrder.filter(id => id in allIds);
+  return Object.keys(allIds).filter(id => !id.endsWith('_min') && !id.endsWith('_max'));
 }
 
-// ── Dashboard ─────────────────────────────────────────────────────────────────
+function metaFor(sid) {
+  return state.sensorMeta[sid] || { name: sid, unit: '', min: null, max: null };
+}
+
+function displayName(sid) {
+  const m = state.sensorMeta[sid];
+  if (m) return m.name;
+  return sid.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+
+function statusClass(sid, s) {
+  if (!s || s.age_sec > 600) return 'stale';
+  if (s.status === 'low') return 'warn';
+  if (s.status === 'high') return sid.toLowerCase().includes('temp') ? 'bad' : 'warn';
+  return 'ok';
+}
+
+function statusLabel(sid, s) {
+  const c = statusClass(sid, s);
+  if (c === 'ok') return 'in range';
+  if (c === 'stale') return 'stale';
+  return s.value < (s.target ? s.target[0] : Infinity) ? 'low' : 'high';
+}
+
+// ── Router ──────────────────────────────────────────────────────────────────
+const TITLES = { dashboard: 'Dashboard', nodes: 'Nodes', profile: 'Profile', chat: 'Chat', decisions: 'Decisions', events: 'Events', readings: 'Readings' };
+const LOADERS = {
+  dashboard: loadDashboard, nodes: loadNodes, profile: loadProfile, chat: loadChat,
+  decisions: loadDecisions, events: loadEvents, readings: loadReadings,
+};
+
+async function goto(view) {
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.view === view));
+  document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === 'view-' + view));
+  state.view = view;
+  $('#view-title').textContent = TITLES[view];
+  window.scrollTo({ top: 0, behavior: 'auto' });
+  try { await LOADERS[view](); } catch (e) { console.error(`${view} load failed:`, e); }
+  if (view === 'chat') { const log = $('#chat-log'); log.scrollTop = log.scrollHeight; }
+}
+
+// ── Dashboard ───────────────────────────────────────────────────────────────
 async function loadDashboard() {
-  try {
-    const [status, sensors, profile, actuators] = await Promise.all([
-      api('/api/status'),
-      api('/api/sensors/latest'),
-      api('/api/profile'),
-      api('/api/actuators'),
-    ]);
-    state.status    = status;
-    state.sensors   = sensors;
-    state.profile   = profile;
-    state.actuators = actuators;
+  const [status, sensors, profile, actuators, nodes, events, decisions] = await Promise.all([
+    api('/api/status'), api('/api/sensors/latest'), api('/api/profile'),
+    api('/api/actuators'), api('/api/nodes'), api('/api/events?limit=5&hours=48'),
+    api('/api/decisions?limit=30'),
+  ]);
+  state.status = status; state.sensors = sensors; state.profile = profile;
+  state.actuators = actuators; state.nodes = nodes; state.decisions = decisions;
 
-    document.getElementById('box-id').textContent    = status.box_id;
-    document.getElementById('day-badge').textContent  = `Day ${status.day}`;
-    document.getElementById('phase-badge').textContent = status.phase;
+  $('#brand-box').textContent = status.box_id;
+  $('#domain-tag').textContent = `${status.domain} · ${status.profile}`;
+  $('#day-chip').textContent = `Day ${status.day}`;
+  $('#phase-chip').textContent = status.phase;
+  const model = (status.last_decision && status.last_decision.model) || (decisions[0] && decisions[0].model) || '—';
+  $('#model-chip').textContent = model;
 
-    renderProfilePanel(status, profile, sensors);
-    renderSensorCards(sensors, profile);
-    renderActuators(actuators);
-    renderLastDecision(status.last_decision);
-    await loadChart(state.chartHours);
-  } catch (e) {
-    console.error('Dashboard load failed:', e);
-  }
+  renderStatusStrip(status, sensors, nodes, decisions);
+  renderProfileBanner(profile, sensors);
+  renderNodeSummary(nodes);
+  renderLastDecision(status.last_decision);
+  renderActuators(actuators);
+  renderRecentFeed(events);
+  updateEventBadge();
+  await loadChart(state.historyHours, true);
 }
 
-function renderProfilePanel(_status, profile, sensors) {
-  const el = document.getElementById('profile-panel');
-  if (!profile || !profile.phases || profile.phases.length === 0) {
-    el.innerHTML = '<div class="dim">No profile loaded</div>';
-    return;
+function renderStatusStrip(status, sensors, nodes, decisions) {
+  const ids = aggregateIds(sensors);
+  const fresh = ids.filter(id => sensors[id].age_sec <= 300);
+  const health = $('#st-health');
+  if (!ids.length) { health.textContent = 'No data'; health.style.color = 'var(--faint)'; }
+  else if (fresh.length === ids.length) { health.textContent = 'Healthy'; health.style.color = 'var(--green)'; }
+  else { health.textContent = 'Degraded'; health.style.color = 'var(--amber)'; }
+  const online = nodes.filter(n => n.online).length;
+  $('#st-health-s').textContent = `${ids.length} sensor${ids.length === 1 ? '' : 's'} · ${online}/${nodes.length} nodes online`;
+
+  if (ids.length) {
+    const newest = Math.min(...ids.map(id => sensors[id].age_sec));
+    $('#st-poll').innerHTML = `${timeAgo(newest).replace(' ago', '')} <span class="unit">ago</span>`;
+    $('#poll-note').textContent = `Poll loop alive · last reading ${timeAgo(newest)}.`;
+  } else {
+    $('#st-poll').textContent = '—';
+    $('#poll-note').textContent = 'No sensor data yet — is the device connected?';
   }
+  $('#st-poll-s').textContent = 'auto-refresh via live stream';
 
-  const phases = profile.phases;
-  const day    = profile.current_day;
+  const d = status.last_decision;
+  if (d) {
+    $('#st-llm').innerHTML = `${d.latency_ms} <span class="unit">ms</span>`;
+    $('#st-llm-s').textContent = d.model;
+  } else { $('#st-llm').textContent = '—'; $('#st-llm-s').textContent = 'no calls yet'; }
 
-  // Compute timeline spans — cap at 90 days for display
-  const displayMax = Math.min(profile.expected_duration_days || 90, 90);
-  const segs = phases.map(p => {
-    const lo  = p.days[0];
-    const hi  = Math.min(p.days[1], displayMax);
-    const pct = Math.max(((hi - lo) / displayMax) * 100, 4);
-    const cls = p.status === 'active' ? 'phase-active'
-              : p.status === 'completed' ? 'phase-done' : 'phase-upcoming';
-    return `<div class="phase-seg ${cls}" style="flex:${pct}"
-               title="${p.name}: Day ${p.days[0]}–${p.days[1] > 900 ? '∞' : p.days[1]}">
-              <span class="phase-label">${p.name}</span>
-            </div>`;
-  }).join('');
-
-  const markerPct = Math.min((day / displayMax) * 100, 99);
-
-  // Active phase targets vs live sensors
-  const activePhase = phases.find(p => p.status === 'active') || {};
-  const targets     = activePhase.targets || {};
-  const targetCards = Object.entries(targets).map(([sid, range]) => {
-    const s    = sensors[sid];
-    const val  = s ? s.value : null;
-    const meta = sensorMeta(sid);
-    const cls  = s ? (s.status === 'ok' ? '' : s.status === 'low' ? 'warn' : 'danger') : '';
-    const icon = s ? (s.status === 'ok' ? '✅' : s.status === 'low' ? '⚠️' : '🔴') : '';
-    return `<div class="target-card ${cls}">
-      <div class="target-name">${meta.label}</div>
-      <div class="target-range">${range[0]}–${range[1]} ${meta.unit}</div>
-      <div class="target-val">${icon} ${val !== null ? val.toFixed(1) : '—'}</div>
-    </div>`;
-  }).join('');
-
-  const nextPhase = phases.find(p => p.status === 'upcoming');
-  const countdown = nextPhase && profile.days_until_next_phase != null
-    ? `${profile.days_until_next_phase}d until ${nextPhase.name}` : '';
-
-  el.innerHTML = `
-    <div class="profile-header">
-      <div>
-        <span class="profile-name">🌿 ${profile.name}</span>
-        ${profile.cultivar ? `<span class="profile-cultivar">· ${profile.cultivar}</span>` : ''}
-      </div>
-      <div class="profile-meta">${countdown}</div>
-    </div>
-    <div class="phase-timeline-wrap">
-      <div class="phase-timeline">${segs}</div>
-      <div class="phase-marker-row">
-        <div class="phase-marker" style="left:${markerPct}%">
-          <div class="phase-marker-line"></div>
-          <div class="phase-marker-label">Day ${day}</div>
-        </div>
-      </div>
-    </div>
-    <div class="target-cards">${targetCards}</div>
-    ${activePhase.notes ? `<div class="phase-note">📝 ${activePhase.notes}</div>` : ''}
-  `;
+  const ovr = decisions.filter(x => x.was_overridden).length;
+  const safe = $('#st-safe');
+  if (ovr) { safe.textContent = `${ovr} override${ovr === 1 ? '' : 's'}`; safe.style.color = 'var(--amber)'; }
+  else { safe.textContent = 'Clear'; safe.style.color = 'var(--green)'; }
+  $('#st-safe-s').textContent = 'in last 30 polls';
 }
 
-function renderSensorCards(sensors, _profile) {
-  const el = document.getElementById('sensor-cards');
-  if (!sensors || Object.keys(sensors).length === 0) {
-    el.innerHTML = '<div class="card dim" style="grid-column:1/-1;padding:20px;text-align:center">No sensor data yet — is the ESP8266 connected?</div>';
+function renderProfileBanner(profile, sensors) {
+  if (!profile || !profile.phases || !profile.phases.length) {
+    $('#pb-name').textContent = 'No profile loaded';
+    $('#pb-sub').textContent = ''; $('#pb-countdown').innerHTML = '';
+    $('#phase-timeline').innerHTML = ''; $('#target-chips').innerHTML = '';
+    $('#phase-note').hidden = true;
     return;
   }
+  $('#pb-name').textContent = profile.name;
+  $('#pb-sub').textContent = [profile.cultivar, state.status && state.status.box_id].filter(Boolean).join(' · ');
+  const next = profile.phases.find(p => p.status === 'upcoming');
+  $('#pb-countdown').innerHTML = (next && profile.days_until_next_phase != null)
+    ? `<strong>${profile.days_until_next_phase} day${profile.days_until_next_phase === 1 ? '' : 's'}</strong>until ${esc(next.name)}`
+    : '';
 
-  el.innerHTML = Object.entries(sensors).map(([sid, s]) => {
-    const meta     = sensorMeta(sid);
-    const statusCls = s.status === 'ok' ? '' : s.status === 'low' ? 'warn' : 'danger';
-    const icon     = s.status === 'ok' ? '' : s.status === 'low' ? '⚠️' : '🔴';
-    const trendPct = s.trend;
-    const trendCls = trendPct > 0 ? 'up' : trendPct < 0 ? 'down' : '';
-    const trendStr = trendPct !== 0
-      ? `${trendPct > 0 ? '↑' : '↓'} ${Math.abs(trendPct).toFixed(2)}/day` : 'stable';
+  const dayMax = Math.min(profile.expected_duration_days || 90, 90);
+  const day = profile.current_day;
+  $('#phase-timeline').innerHTML = profile.phases.map(p => {
+    const pct = Math.max(((Math.min(p.days[1], dayMax) - p.days[0]) / dayMax) * 100, 6);
+    const hi = p.days[1] > 900 ? '∞' : p.days[1];
+    return `<div class="tseg ${p.status}" style="flex:${pct}" title="${esc(p.name)}: day ${p.days[0]}–${hi}">${esc(p.name)}</div>`;
+  }).join('') + `<div class="tmarker" style="left:${Math.min((day / dayMax) * 100, 99)}%"><span>Day ${day}</span></div>`;
 
-    const bar = rangeBar(s.value, s.target, meta);
-    const targetStr = s.target ? `${s.target[0]}–${s.target[1]} ${meta.unit}` : '—';
+  const active = profile.phases.find(p => p.status === 'active') || {};
+  const targets = active.targets || {};
+  const sids = Object.keys(targets).filter(sid => state.sensorMeta[sid] || sensors[sid]);
+  $('#target-chips').innerHTML = sids.map(sid => {
+    const s = sensors[sid], r = targets[sid], m = metaFor(sid);
+    const unit = unitLabel(m.unit || (s && s.unit));
+    let cls = '', val = '—';
+    if (s) {
+      cls = statusClass(sid, s) === 'ok' ? 'ok' : statusClass(sid, s);
+      if (cls === 'stale') cls = '';
+      val = s.value.toFixed(1);
+    }
+    return `<div class="target ${cls}"><div class="t-k">${esc(displayName(sid))}</div>
+      <div class="t-v num">${val} <small>${esc(unit)}</small></div>
+      <div class="t-r num">target ${r[0]}–${r[1]} ${esc(unit)}</div></div>`;
+  }).join('') || '<div class="dim" style="font-size:12px">No targets for this phase</div>';
 
-    return `<div class="sensor-card ${statusCls}">
-      ${icon ? `<div class="sensor-status-icon">${icon}</div>` : ''}
-      <div class="sensor-label">${meta.label}</div>
-      <div class="sensor-value">${s.value.toFixed(1)}<span class="sensor-unit">${meta.unit}</span></div>
-      <div class="sensor-trend ${trendCls}">${trendStr}</div>
+  const note = $('#phase-note');
+  const activeNotes = (profile.phases.find(p => p.status === 'active') || {}).notes;
+  note.hidden = !activeNotes;
+  note.textContent = activeNotes || '';
+}
+
+// ── Node summary (dashboard) ──────────────────────────────────────────────────
+function renderNodeSummary(nodes) {
+  const online = nodes.filter(n => n.online).length;
+  const chip = $('#nodes-online-chip');
+  chip.textContent = `${online}/${nodes.length} online`;
+  chip.className = online === nodes.length && nodes.length ? 'chip green' : 'chip amber';
+  const badge = $('#nodes-badge');
+  const off = nodes.length - online;
+  badge.hidden = off === 0;
+  badge.textContent = off;
+  $('#node-summary').innerHTML = nodes.length ? nodes.map(n => `
+    <button class="node-sum-row" data-nodesum="${esc(n.id)}">
+      <span class="node-dot${n.online ? '' : ' stale'}"></span>
+      <span><span class="n-id">${esc(n.id)}</span><br>
+      <span class="n-sub">${esc(n.adapter || 'unknown adapter')} · ${Object.keys(n.sensors).length} sensors · ${n.actuators.length} actuator${n.actuators.length === 1 ? '' : 's'}</span></span>
+      <span class="go num">${n.last_seen ? timeAgo(Date.now() / 1000 - n.last_seen) : 'never'} · Details →</span>
+    </button>`).join('')
+    : '<div class="empty-block">No nodes reporting yet</div>';
+  document.querySelectorAll('[data-nodesum]').forEach(b => b.addEventListener('click', () => {
+    state.activeNode = b.dataset.nodesum;
+    goto('nodes');
+  }));
+}
+
+// ── Sensor cards ────────────────────────────────────────────────────────────
+function sparkline(points, color) {
+  if (!points || points.length < 2) return '<svg class="spark" aria-hidden="true"></svg>';
+  const vals = points.map(p => p.value);
+  const lo = Math.min(...vals), hi = Math.max(...vals), span = (hi - lo) || 1;
+  const pts = vals.map((v, i) => `${(i / (vals.length - 1) * 100).toFixed(1)},${(96 - ((v - lo) / span) * 92).toFixed(1)}`).join(' ');
+  return `<svg class="spark" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+    <polyline points="${pts}" fill="none" stroke="${color}" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" opacity=".9"/></svg>`;
+}
+
+function renderSensorCards(sensors) {
+  const ids = aggregateIds(sensors);
+  const multi = state.nodes.length > 1;
+  $('#sensors-sub').textContent = multi
+    ? `fleet averages across ${state.nodes.length} nodes · per-node values in Nodes`
+    : 'live values with 7-day trend and target band';
+  if (!ids.length) {
+    $('#sensor-grid').innerHTML = '<div class="panel dim" style="grid-column:1/-1;text-align:center">No sensor data yet — is the device connected and publishing to MQTT?</div>';
+    return;
+  }
+  $('#sensor-grid').innerHTML = ids.map(sid => {
+    const s = sensors[sid], m = metaFor(sid);
+    const unit = unitLabel(m.unit || s.unit);
+    const cls = statusClass(sid, s);
+    const pill = cls === 'stale' ? '<span class="stale-tag">stale</span>' : `<span class="st ${cls}">${statusLabel(sid, s)}</span>`;
+    const tr = s.trend || 0;
+    const trCls = tr > 0 ? 'up' : tr < 0 ? 'down' : '';
+    const trIc = tr !== 0 ? `<svg class="ic" style="width:11px;height:11px"><use href="#${tr > 0 ? 'i-up' : 'i-down'}"/></svg>` : '';
+    const lo = (m.min != null ? m.min : 0), hi = (m.max != null && m.max !== m.min ? m.max : 100);
+    const sc = v => Math.min(Math.max((v - lo) / (hi - lo) * 100, 0), 100);
+    let bar = '';
+    if (s.target) {
+      const tL = sc(s.target[0]), tW = sc(s.target[1]) - tL;
+      bar = `<div class="rbar"><div class="zone" style="left:${tL}%;width:${tW}%"></div>
+        <div class="val ${cls === 'ok' || cls === 'stale' ? '' : cls}" style="left:${sc(s.value)}%"></div></div>`;
+    }
+    const hist = state.history[sid];
+    const pts = hist ? hist.points.slice(-40) : null;
+    return `<div class="sensor"><div class="sensor-top"><svg class="ic"><use href="#${sensorIcon(sid)}"/></svg>${esc(displayName(sid))}${pill}</div>
+      <div class="sensor-val num">${s.value.toFixed(1)}<small>${esc(unit)}</small></div>
+      <div class="sensor-trend ${trCls}">${trIc}${tr !== 0 ? `${Math.abs(tr).toFixed(1)}/day` : 'stable'} · 7d</div>
+      ${sparkline(pts, sensorColor(sid))}
       ${bar}
-      <div class="sensor-meta">target: ${targetStr} · ${timeAgo(s.age_sec)}</div>
+      <div class="sensor-meta num">${multi ? `avg · ` : ''}${s.target ? `target ${s.target[0]}–${s.target[1]} ${esc(unit)} · ` : ''}${timeAgo(s.age_sec)}</div>
     </div>`;
   }).join('');
 }
 
-function rangeBar(value, target, meta) {
-  if (!target) return '';
-  const scale = v => Math.min(Math.max((v - meta.min) / (meta.max - meta.min) * 100, 0), 100);
-  const tL  = scale(target[0]);
-  const tW  = scale(target[1]) - tL;
-  const vP  = scale(value);
-  return `<div class="range-bar-wrap">
-    <div class="range-track">
-      <div class="range-zone" style="left:${tL}%;width:${tW}%"></div>
-      <div class="range-val" style="left:${vP}%"></div>
-    </div>
-  </div>`;
+// ── Chart (hand-rolled SVG, dynamic dual axis) ──────────────────────────────
+async function loadChart(hours, skipRender) {
+  state.historyHours = hours;
+  document.querySelectorAll('#range-seg button')
+    .forEach(b => b.classList.toggle('active', +b.dataset.h === hours));
+  try {
+    state.history = await api(`/api/history?hours=${hours}`);
+  } catch (e) {
+    console.error('History load failed:', e);
+    state.history = {};
+  }
+  drawChart();
+  if (!skipRender) renderSensorCards(state.sensors);
+}
+
+function drawChart() {
+  const svg = $('#chart'), tip = $('#chart-tip');
+  const ids = aggregateIds(state.history).filter(sid => (state.history[sid].points || []).length > 1);
+  if (!ids.length) {
+    const box = svg.parentElement;
+    const fresh = svg.cloneNode(false);
+    fresh.setAttribute('id', 'chart');
+    fresh.setAttribute('role', 'img');
+    fresh.setAttribute('aria-label', 'Sensor history chart');
+    svg.replaceWith(fresh);
+    $('#chart-legend').innerHTML = '';
+    tip.style.display = 'none';
+    let empty = box.querySelector('.chart-empty');
+    if (!empty) { empty = document.createElement('div'); empty.className = 'chart-empty empty-block'; box.appendChild(empty); }
+    empty.textContent = 'No history for this range yet';
+    return;
+  }
+  const old = svg.parentElement.querySelector('.chart-empty');
+  if (old) old.remove();
+
+  const W = svg.clientWidth || 900, H = 260, P = { l: 40, r: 40, t: 12, b: 26 };
+  const iw = W - P.l - P.r, ih = H - P.t - P.b;
+  const series = ids.map(sid => {
+    const m = metaFor(sid);
+    const unit = unitLabel(m.unit || state.history[sid].unit);
+    let points = state.history[sid].points;
+    if (points.length > 240) {
+      const step = Math.ceil(points.length / 240);
+      points = points.filter((_, i) => i % step === 0);
+    }
+    return { sid, label: displayName(sid), unit, color: sensorColor(sid), points,
+      temp: isTempSid(sid, m.unit || state.history[sid].unit) };
+  });
+  const left = series.filter(s => s.temp), right = series.filter(s => !s.temp);
+  if (!left.length && right.length) { left.push(...right.splice(0, right.length)); }
+  const extent = list => {
+    const vs = list.flatMap(s => s.points.map(p => p.value));
+    const lo = Math.min(...vs), hi = Math.max(...vs), pad = ((hi - lo) || Math.abs(hi) || 1) * 0.12;
+    return [lo - pad, hi + pad];
+  };
+  const [lLo, lHi] = extent(left), [rLo, rHi] = right.length ? extent(right) : [0, 1];
+  const t0 = Math.min(...series.map(s => s.points[0].ts));
+  const t1 = Math.max(...series.map(s => s.points[s.points.length - 1].ts));
+  const X = ts => P.l + ((ts - t0) / ((t1 - t0) || 1)) * iw;
+  const Y = (v, isLeft) => {
+    const [lo, hi] = isLeft ? [lLo, lHi] : [rLo, rHi];
+    return P.t + (1 - (v - lo) / ((hi - lo) || 1)) * ih;
+  };
+  const line = s => s.points.map((p, i) => `${i ? 'L' : 'M'}${X(p.ts).toFixed(1)},${Y(p.value, left.includes(s)).toFixed(1)}`).join(' ');
+
+  let grid = '';
+  for (let g = 0; g <= 4; g++) {
+    const y = P.t + (g / 4) * ih;
+    grid += `<line x1="${P.l}" y1="${y}" x2="${W - P.r}" y2="${y}" stroke="#1a221c" stroke-width="1"/>
+      <text x="${P.l - 7}" y="${y + 4}" text-anchor="end" font-size="10" fill="#68736a">${(lHi - (lHi - lLo) * g / 4).toFixed(0)}</text>`;
+    if (right.length) grid += `<text x="${W - P.r + 7}" y="${y + 4}" font-size="10" fill="#68736a">${(rHi - (rHi - rLo) * g / 4).toFixed(0)}</text>`;
+  }
+  for (let g = 0; g < 6; g++) {
+    const ts = t0 + ((t1 - t0) * g) / 5, d = new Date(ts);
+    const lbl = state.historyHours > 48
+      ? d.toLocaleDateString([], { month: 'short', day: 'numeric' })
+      : d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    grid += `<text x="${P.l + (g / 5) * iw}" y="${H - 6}" text-anchor="middle" font-size="10" fill="#68736a">${lbl}</text>`;
+  }
+  $('#chart-legend').innerHTML = series.map(s =>
+    `<span><i style="background:${s.color}"></i>${esc(s.label)}${s.unit ? ` (${esc(s.unit)})` : ''}</span>`).join('');
+
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  svg.innerHTML = grid + series.map((s, i) =>
+    `<path d="${line(s)}" fill="none" stroke="${s.color}" stroke-width="${s.temp ? 2.2 : 1.8}" opacity=".9"/>`
+  ).join('') + `<line id="ch-x" y1="${P.t}" y2="${P.t + ih}" stroke="#3a453d" stroke-width="1" style="display:none"/>`
+    + series.map((s, i) => `<circle id="ch-d${i}" r="3.5" fill="${s.color}" style="display:none"/>`).join('');
+
+  const lx = svg.querySelector('#ch-x');
+  const dots = series.map((_, i) => svg.querySelector(`#ch-d${i}`));
+  const flat = series[0].points;
+  svg.onmousemove = ev => {
+    const r = svg.getBoundingClientRect(), mx = (ev.clientX - r.left) * (W / r.width);
+    let best = 0, bd = Infinity;
+    flat.forEach((p, i) => { const d = Math.abs(X(p.ts) - mx); if (d < bd) { bd = d; best = i; } });
+    const cx = X(flat[best].ts);
+    lx.setAttribute('x1', cx); lx.setAttribute('x2', cx); lx.style.display = '';
+    let rows = '';
+    series.forEach((s, i) => {
+      let bi = 0, bdd = Infinity;
+      s.points.forEach((p, j) => { const d = Math.abs(p.ts - flat[best].ts); if (d < bdd) { bdd = d; bi = j; } });
+      const v = s.points[bi].value;
+      dots[i].setAttribute('cx', cx); dots[i].setAttribute('cy', Y(v, left.includes(s))); dots[i].style.display = '';
+      rows += `<span style="color:${s.color}">●</span> <span class="num">${v.toFixed(1)}${s.unit ? esc(s.unit) : ''}</span><br>`;
+    });
+    tip.innerHTML = `<div class="tt num">${new Date(flat[best].ts).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>${rows}`;
+    tip.style.display = 'block';
+    tip.style.left = Math.min((cx / W) * r.width + 14, r.width - 160) + 'px';
+    tip.style.top = '10px';
+  };
+  svg.onmouseleave = () => { tip.style.display = 'none'; lx.style.display = 'none'; dots.forEach(c => c.style.display = 'none'); };
+}
+
+// ── Actuators ───────────────────────────────────────────────────────────────
+function renderActuators(actuators) {
+  const el = $('#actuator-list');
+  if (!actuators || !actuators.length) {
+    el.innerHTML = '<div class="empty-block">No actuators configured</div>';
+    return;
+  }
+  el.innerHTML = actuators.map(a => {
+    const isOn = a.state === 'on', known = a.state === 'on' || a.state === 'off';
+    return `<div class="act-row ${isOn ? 'is-on' : ''}">
+      <span class="act-ic"><svg class="ic"><use href="#${actuatorIcon(a.id)}"/></svg></span>
+      <div class="act-info"><div class="act-name">${esc(a.name)}</div>
+        <div class="act-sub num">${known ? (isOn ? 'ON' : 'OFF') : esc(a.state)}${a.ts ? ` · ${timeAgo(Date.now() / 1000 - a.ts)}` : ''} · ${esc(a.id)}</div></div>
+      <label class="switch"><input type="checkbox" data-act="${esc(a.id)}" ${isOn ? 'checked' : ''} aria-label="${esc(a.name)}">
+        <span class="sw-track"></span><span class="sw-thumb"></span></label>
+    </div>`;
+  }).join('');
+  el.querySelectorAll('[data-act]').forEach(sw => sw.addEventListener('change', () => controlActuator(sw.dataset.act, sw.checked ? 'on' : 'off', sw)));
+}
+
+async function controlActuator(id, value, sw) {
+  sw.disabled = true;
+  try {
+    const resp = await api(`/api/actuator/${id}`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ value }),
+    });
+    if (resp.error) throw new Error(resp.error);
+    setTimeout(async () => {
+      try {
+        state.actuators = await api('/api/actuators');
+        renderActuators(state.actuators);
+        if (state.view === 'nodes') { state.nodes = await api('/api/nodes'); renderNodeDetail(); }
+      } catch (e) { console.error('Actuator refresh failed:', e); }
+    }, 800);
+  } catch (e) {
+    sw.checked = !sw.checked;
+    alert(`Failed to control ${id}: ${e.message}`);
+    sw.disabled = false;
+  }
+}
+
+// ── Last decision + feeds ───────────────────────────────────────────────────
+function cmdBadge(key, val) {
+  const isPwm = typeof val === 'number';
+  const cls = isPwm ? 'pwm' : val === 'on' ? 'on' : 'off';
+  const label = isPwm ? `${key}: ${val}%` : `${key}: ${val}`;
+  return `<span class="cmd ${cls}">${esc(label)}</span>`;
 }
 
 function renderLastDecision(d) {
-  const el = document.getElementById('last-decision-card');
-  if (!d) { el.innerHTML = '<div class="empty">No decisions yet</div>'; return; }
-  const cmds = Object.entries(d.commands).map(([k, v]) => cmdBadge(k, v)).join('');
+  const el = $('#last-decision');
+  if (!d) { el.innerHTML = '<div class="empty-block">No decisions yet</div>'; return; }
   el.innerHTML = `
-    <div class="decision-header">
-      <span class="dim">Last decision</span>
-      <span class="dim">${fmtDateTime(d.ts)} · ${d.model} · ${d.latency_ms}ms</span>
-    </div>
-    <div class="cmd-row">${cmds}</div>
-    <div class="decision-reason">${d.reason}</div>
-    ${d.was_overridden ? '<div class="override-badge">⚠️ Safety override applied</div>' : ''}
-  `;
+    <div class="dec-meta"><span class="num">${fmtDateTime(d.ts)}</span><span>·</span><span class="num">${esc(d.model)}</span><span>·</span><span class="num">${d.latency_ms}ms</span></div>
+    <div class="cmds">${Object.entries(d.commands).map(([k, v]) => cmdBadge(k, v)).join('')}</div>
+    <p class="dec-reason">${esc(d.reason)}</p>
+    ${d.was_overridden ? '<div class="dec-flag"><svg class="ic"><use href="#i-shield"/></svg>Safety override applied</div>' : ''}`;
 }
 
-// ── Chart ─────────────────────────────────────────────────────────────────────
-async function loadChart(hours) {
-  state.chartHours = hours;
-  document.querySelectorAll('.range-btn')
-    .forEach(b => b.classList.toggle('active', parseInt(b.dataset.hours) === hours));
+const EVENT_ICON = {
+  SENSOR_ANOMALY: 'i-warn', SAFETY_OVERRIDE: 'i-shield', ACTUATOR_FIRED: 'i-plug',
+  DOMAIN_STARTED: 'i-info', POLL_ERROR: 'i-x', LLM_FAILURE_SAFE_OFF: 'i-shield',
+  DURATION_LIMIT: 'i-clock', ACTUATOR_NO_EFFECT: 'i-eye', OBSERVATION: 'i-eye',
+  REFLECTION: 'i-chat', PHASE_CHANGE: 'i-sprout',
+};
+function feedRow(e) {
+  const sev = e.severity === 'error' ? 'err' : e.severity === 'warn' ? 'warn' : 'info';
+  return `<div class="feed-row"><span class="feed-ic fi-${sev}"><svg class="ic"><use href="#${EVENT_ICON[e.type] || 'i-info'}"/></svg></span>
+    <div class="feed-body"><span class="feed-type">${esc(e.type.replace(/_/g, ' '))}</span>
+    <div class="feed-note">${esc(e.note || '')}</div></div>
+    <span class="feed-ts num">${fmtDateTime(e.ts)}</span></div>`;
+}
 
-  const data = await api(`/api/history?hours=${hours}`);
+function renderRecentFeed(events) {
+  $('#recent-feed').innerHTML = events.length ? events.map(feedRow).join('')
+    : '<div class="empty-block">No recent activity</div>';
+}
 
-  const datasets = Object.entries(data).map(([sid, series]) => {
-    const meta = sensorMeta(sid);
-    return {
-      label: `${meta.label} (${meta.unit})`,
-      data: series.points.map(p => ({ x: p.ts, y: p.value })),
-      borderColor: meta.color,
-      backgroundColor: meta.color + '18',
-      borderWidth: 2,
-      pointRadius: 0,
-      tension: 0.3,
-      yAxisID: meta.axis,
-    };
-  });
+async function updateEventBadge() {
+  try {
+    const events = await api('/api/events?limit=50&hours=48');
+    const n = events.filter(e => e.severity === 'warn' || e.severity === 'error').length;
+    const badge = $('#events-badge');
+    badge.hidden = n === 0;
+    badge.textContent = n;
+  } catch (e) { /* badge stays hidden */ }
+}
 
-  const ctx = document.getElementById('sensor-chart').getContext('2d');
-
-  if (state.chart) {
-    state.chart.data.datasets = datasets;
-    state.chart.update('none');
-    return;
+// ── Nodes view ──────────────────────────────────────────────────────────────
+async function loadNodes() {
+  const [nodes, profile] = await Promise.all([api('/api/nodes'), api('/api/profile')]);
+  state.nodes = nodes; state.profile = profile;
+  if (!state.activeNode || !nodes.some(n => n.id === state.activeNode)) {
+    state.activeNode = nodes.length ? nodes[0].id : null;
   }
-
-  state.chart = new Chart(ctx, {
-    type: 'line',
-    data: { datasets },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      interaction: { mode: 'index', intersect: false },
-      plugins: {
-        legend: { labels: { color: '#7b84a3', boxWidth: 12, font: { size: 12 } } },
-        tooltip: { backgroundColor: '#1b1f2e', borderColor: '#2e3352', borderWidth: 1 },
-      },
-      scales: {
-        x: {
-          type: 'time',
-          time: {
-            tooltipFormat: 'HH:mm',
-            displayFormats: { minute: 'HH:mm', hour: 'HH:mm', day: 'MMM d' },
-          },
-          ticks: { color: '#7b84a3', maxTicksLimit: 8 },
-          grid:  { color: '#1e2235' },
-        },
-        y1: {
-          type: 'linear',
-          position: 'left',
-          title: { display: true, text: '°C', color: '#7b84a3', font: { size: 11 } },
-          ticks: { color: '#7b84a3' },
-          grid:  { color: '#1e2235' },
-        },
-        y2: {
-          type: 'linear',
-          position: 'right',
-          min: 0,
-          max: 100,
-          title: { display: true, text: '%', color: '#7b84a3', font: { size: 11 } },
-          ticks: { color: '#7b84a3' },
-          grid:  { drawOnChartArea: false },
-        },
-      },
-    },
-  });
+  renderNodeList(); renderNodeDetail(); renderMatrix();
+  renderNodeSummary(nodes);
 }
 
-// ── Profile tab ───────────────────────────────────────────────────────────────
+function activeTargets() {
+  const p = (state.profile && state.profile.phases || []).find(x => x.status === 'active') || {};
+  return p.targets || {};
+}
+
+function nodeSensClass(sid, value) {
+  const t = activeTargets()[sid];
+  if (!t) return '';
+  if (value < t[0]) return 'warn';
+  if (value > t[1]) return sid.toLowerCase().includes('temp') ? 'bad' : 'warn';
+  return 'ok';
+}
+
+function renderNodeList() {
+  const el = $('#node-list');
+  if (!state.nodes.length) { el.innerHTML = '<div class="panel dim" style="text-align:center">No nodes yet</div>'; return; }
+  el.innerHTML = state.nodes.map(n => `
+    <button class="node-item ${n.id === state.activeNode ? 'active' : ''}" data-node="${esc(n.id)}">
+      <span class="node-dot${n.online ? '' : ' stale'}"></span>
+      <span><span class="n-id">${esc(n.id)}</span>
+      <span class="n-sub">${Object.keys(n.sensors).length} sensors · seen ${n.last_seen ? timeAgo(Date.now() / 1000 - n.last_seen) : 'never'}</span></span>
+    </button>`).join('');
+  el.querySelectorAll('[data-node]').forEach(b => b.addEventListener('click', () => {
+    state.activeNode = b.dataset.node;
+    renderNodeList(); renderNodeDetail();
+  }));
+}
+
+function renderNodeDetail() {
+  const el = $('#node-detail');
+  const n = state.nodes.find(x => x.id === state.activeNode);
+  if (!n) { el.innerHTML = '<div class="empty-block">Select a node</div>'; return; }
+  const targets = activeTargets();
+  const cards = Object.entries(n.sensors).map(([sid, s]) => {
+    const m = metaFor(sid), unit = unitLabel(m.unit || s.unit);
+    const t = targets[sid], cls = nodeSensClass(sid, s.value);
+    return `<div class="nsensor ${cls}"><div class="t-k"><svg class="ic" style="width:13px;height:13px"><use href="#${sensorIcon(sid)}"/></svg>${esc(displayName(sid))}</div>
+      <div class="t-v num">${s.value.toFixed(1)} <small>${esc(unit)}</small></div>
+      <div class="t-r num">${t ? `target ${t[0]}–${t[1]} ${esc(unit)} · ` : ''}${timeAgo(s.age_sec)}</div></div>`;
+  }).join('') || '<div class="dim" style="font-size:13px">No readings from this node yet.</div>';
+  const acts = n.actuators.map(ref => {
+    const full = state.actuators.find(a => a.id === ref.id);
+    const st = full ? full.state : ref.state;
+    const isOn = st === 'on', known = st === 'on' || st === 'off';
+    const name = full ? full.name : ref.id;
+    const ts = full ? full.ts : ref.ts;
+    return `<div class="act-row ${isOn ? 'is-on' : ''}">
+      <span class="act-ic"><svg class="ic"><use href="#${actuatorIcon(ref.id)}"/></svg></span>
+      <div class="act-info"><div class="act-name">${esc(name)}</div>
+        <div class="act-sub num">${known ? (isOn ? 'ON' : 'OFF') : esc(st)}${ts ? ` · ${timeAgo(Date.now() / 1000 - ts)}` : ''} · ${esc(ref.id)}</div></div>
+      <label class="switch"><input type="checkbox" data-nact="${esc(ref.id)}" ${isOn ? 'checked' : ''} aria-label="${esc(name)}">
+        <span class="sw-track"></span><span class="sw-thumb"></span></label>
+    </div>`;
+  }).join('') || '<div class="dim" style="font-size:13px">No actuators assigned to this node.</div>';
+  const topicRoot = n.id === 'local'
+    ? `${n.topic_prefix || '…'}/#`
+    : `${n.topic_prefix || '…'}/nodes/${n.id}/#`;
+  el.innerHTML = `
+    <div class="nd-head"><span class="node-dot${n.online ? '' : ' stale'}"></span><h2>${esc(n.id)}</h2>
+      <span class="chip ${n.online ? 'green' : 'amber'}" style="font-size:11px">${n.online ? 'online' : 'stale'}</span>
+      <span class="dim num" style="font-size:12px;margin-left:auto">seen ${n.last_seen ? timeAgo(Date.now() / 1000 - n.last_seen) : 'never'}</span></div>
+    <div class="nd-meta">
+      <div class="m"><div class="k">Adapter</div><div class="v">${esc(n.adapter || '—')}</div></div>
+      <div class="m"><div class="k">Broker</div><div class="v">${esc(n.broker || '—')}</div></div>
+      <div class="m"><div class="k">Topic root</div><div class="v">${esc(topicRoot)}</div></div>
+      <div class="m"><div class="k">Sensors</div><div class="v">${Object.keys(n.sensors).length}</div></div>
+      <div class="m"><div class="k">Actuators</div><div class="v">${n.actuators.length}</div></div>
+      <div class="m"><div class="k">Mode</div><div class="v">${state.nodes.length > 1 ? 'multi-node' : 'single'}</div></div>
+    </div>
+    <div class="nd-sub">Sensors on this node</div>
+    <div class="node-sensors">${cards}</div>
+    <div class="nd-sub">Actuators on this node</div>
+    <div>${acts}</div>`;
+  el.querySelectorAll('[data-nact]').forEach(sw => sw.addEventListener('change', async () => {
+    const id = sw.dataset.nact;
+    await controlActuator(id, sw.checked ? 'on' : 'off', sw);
+    try { state.nodes = await api('/api/nodes'); renderNodeDetail(); } catch (e) { /* keep optimistic state */ }
+  }));
+}
+
+function renderMatrix() {
+  const nodes = state.nodes;
+  $('#matrix-head').innerHTML = '<th>Sensor</th>' + nodes.map(n => `<th class="num">${esc(n.id)}</th>`).join('')
+    + (nodes.length > 1 ? '<th class="num">Fleet avg</th>' : '') + '<th>Target</th>';
+  const targets = activeTargets();
+  const sids = [...new Set(nodes.flatMap(n => Object.keys(n.sensors)))];
+  const ordered = [...sids].sort((a, b) => (state.metaOrder.indexOf(a) + 999) - (state.metaOrder.indexOf(b) + 999));
+  $('#matrix-body').innerHTML = ordered.map(sid => {
+    const m = metaFor(sid), unit = unitLabel(m.unit);
+    const vals = nodes.map(n => n.sensors[sid] ? n.sensors[sid].value : null);
+    const known = vals.filter(v => v !== null);
+    const avg = known.length ? known.reduce((a, b) => a + b, 0) / known.length : null;
+    const t = targets[sid];
+    return `<tr><td>${esc(displayName(sid))}${unit ? ` <span class="dim">(${esc(unit)})</span>` : ''}</td>`
+      + vals.map(v => `<td class="num">${v === null ? '<span class="dim">—</span>' : v.toFixed(1)}</td>`).join('')
+      + (nodes.length > 1 ? `<td class="num avg">${avg === null ? '—' : avg.toFixed(1)}</td>` : '')
+      + `<td class="dim num" style="font-size:12px">${t ? `${t[0]}–${t[1]} ${esc(unit)}` : '—'}</td></tr>`;
+  }).join('') || '<tr><td class="dim" colspan="5">No node readings yet</td></tr>';
+}
+
+// ── Profile view ────────────────────────────────────────────────────────────
 async function loadProfile() {
-  try {
-    const [profile, sensors] = await Promise.all([
-      api('/api/profile'),
-      api('/api/sensors/latest'),
-    ]);
-    state.profile = profile;
-    state.sensors = sensors;
-    renderProfileDetail(profile, sensors);
-  } catch (e) {
-    document.getElementById('profile-detail').innerHTML = `<div class="dim">Error: ${e.message}</div>`;
-  }
-}
+  const [profile, sensors] = await Promise.all([api('/api/profile'), api('/api/sensors/latest')]);
+  state.profile = profile; state.sensors = sensors;
+  $('#pf-name').textContent = profile.name || 'No profile loaded';
+  $('#pf-cultivar').textContent = [profile.cultivar, state.status && `${state.status.domain} domain`].filter(Boolean).join(' · ');
+  $('#pf-notes').textContent = profile.notes || '';
+  const stats = [];
+  if (profile.started_at) stats.push(`Started <strong>${new Date(profile.started_at * 1000).toLocaleDateString()}</strong>`);
+  stats.push(`Day <strong class="num">${profile.current_day}${profile.expected_duration_days ? ` of ${profile.expected_duration_days}` : ''}</strong>`);
+  if (profile.current_phase) stats.push(`Phase <strong>${esc(profile.current_phase)}</strong>`);
+  if (profile.harvest_days) stats.push(`Harvest at day <strong class="num">${profile.harvest_days}</strong>`);
+  if (profile.days_until_next_phase) stats.push(`<strong class="num">${profile.days_until_next_phase}d</strong> until next phase`);
+  $('#pf-stats').innerHTML = stats.map(s => `<span class="pf-stat">${s}</span>`).join('');
 
-function renderProfileDetail(profile, sensors) {
-  const el = document.getElementById('profile-detail');
-  const phases = profile.phases || [];
-
-  const phasesHtml = phases.map(p => {
-    const icon = p.status === 'active' ? '▶' : p.status === 'completed' ? '✓' : '○';
-
-    const targetsHtml = Object.entries(p.targets || {}).map(([sid, range]) => {
-      const meta     = sensorMeta(sid);
-      const current  = sensors[sid];
-      const val      = current ? current.value : null;
-      const scale    = v => Math.min(Math.max((v - meta.min) / (meta.max - meta.min) * 100, 0), 100);
-      const tL       = scale(range[0]);
-      const tW       = scale(range[1]) - tL;
-      const vP       = val !== null ? scale(val) : null;
-      const sStatus  = val !== null ? (val < range[0] ? 'low' : val > range[1] ? 'high' : 'ok') : '';
-
-      return `<div class="phase-target-row">
-        <span class="phase-target-label">${meta.label}</span>
-        <span class="phase-target-range">${range[0]}–${range[1]} ${meta.unit}</span>
-        <div class="range-track wide">
-          <div class="range-zone" style="left:${tL}%;width:${tW}%"></div>
-          ${vP !== null && p.status === 'active'
-            ? `<div class="range-val ${sStatus !== 'ok' ? 'warn' : ''}" style="left:${vP}%"></div>`
-            : ''}
-        </div>
-        ${val !== null && p.status === 'active'
-          ? `<span class="phase-target-current ${sStatus}">${val.toFixed(1)}</span>`
-          : ''}
-      </div>`;
+  $('#phases-list').innerHTML = (profile.phases || []).map(p => {
+    const rows = Object.entries(p.targets || {}).map(([sid, r]) => {
+      const m = metaFor(sid), unit = unitLabel(m.unit);
+      const cur = sensors[sid];
+      const lo = (m.min != null ? m.min : 0), hi = (m.max != null && m.max !== m.min ? m.max : 100);
+      const sc = v => Math.min(Math.max((v - lo) / (hi - lo) * 100, 0), 100);
+      const show = p.status === 'active' && cur;
+      const st = cur ? (cur.value < r[0] ? 'low' : cur.value > r[1] ? 'high' : 'ok') : '';
+      return `<div class="pt-row"><span>${esc(displayName(sid))}</span><span class="rng num">${r[0]}–${r[1]} ${esc(unit)}</span>
+        <div class="rbar" style="margin:0"><div class="zone" style="left:${sc(r[0])}%;width:${sc(r[1]) - sc(r[0])}%"></div>
+        ${show ? `<div class="val ${st === 'ok' ? '' : st === 'low' ? 'warn' : 'bad'}" style="left:${sc(cur.value)}%"></div>` : ''}</div>
+        <span class="cur ${show ? st : ''} num">${show ? cur.value.toFixed(1) : ''}</span></div>`;
     }).join('');
-
-    const dayLabel = p.days[1] > 900 ? '∞' : p.days[1];
-    return `<div class="phase-block ${p.status}">
-      <div class="phase-block-header">
-        <span class="phase-status-icon">${icon}</span>
-        <span class="phase-name">${p.name}</span>
-        <span class="phase-days dim">Day ${p.days[0]}–${dayLabel}</span>
-      </div>
-      ${p.notes ? `<div class="phase-notes dim">${p.notes}</div>` : ''}
-      ${targetsHtml}
-    </div>`;
-  }).join('');
-
-  const startDate = new Date(profile.started_at * 1000).toLocaleDateString();
-  el.innerHTML = `
-    <div class="profile-detail-header">
-      <h2>🌿 ${profile.name}</h2>
-      ${profile.cultivar ? `<div class="cultivar">${profile.cultivar}</div>` : ''}
-      ${profile.notes    ? `<div class="profile-notes dim">${profile.notes}</div>` : ''}
-      <div class="profile-stats">
-        <span>📅 Started ${startDate}</span>
-        <span>📆 Day ${profile.current_day}${profile.expected_duration_days ? ' of ' + profile.expected_duration_days : ''}</span>
-        ${profile.harvest_days          ? `<span>🌾 Harvest at day ${profile.harvest_days}</span>` : ''}
-        ${profile.days_until_next_phase ? `<span>⏭ ${profile.days_until_next_phase}d until next phase</span>` : ''}
-      </div>
-    </div>
-    <div class="phases-list">${phasesHtml}</div>
-  `;
+    const hi = p.days[1] > 900 ? '∞' : p.days[1];
+    return `<div class="phase-block ${p.status}"><div class="pb-head"><span class="pb-dot"></span>
+      <span class="pb-name">${esc(p.name)}</span><span class="pb-days">day ${p.days[0]}–${hi}</span></div>
+      ${p.notes ? `<div class="pb-notes">${esc(p.notes)}</div>` : ''}${rows}</div>`;
+  }).join('') || '<div class="panel dim" style="text-align:center">No phases defined</div>';
 }
 
-// ── Chat ──────────────────────────────────────────────────────────────────────
-async function loadChat() {
-  try {
-    const history = await api('/api/chat_history');
-    state.chatMessages = history;
-    renderChatMessages();
-  } catch (e) {
-    document.getElementById('chat-messages').innerHTML =
-      `<div class="dim">Error loading chat: ${e.message}</div>`;
+// ── Chat ────────────────────────────────────────────────────────────────────
+function renderMiniMd(text) {
+  // Fail-closed subset: escape first, then inline code, bold, blocks.
+  let h = esc(text);
+  const codes = [];
+  h = h.replace(/`([^`\n]+)`/g, (_, c) => { codes.push(`<code>${c}</code>`); return `\u0000${codes.length - 1}\u0000`; });
+  h = h.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  const lines = h.split('\n');
+  let out = '', inList = false;
+  const closeList = () => { if (inList) { out += '</ul>'; inList = false; } };
+  for (const ln of lines) {
+    const t = ln.trim();
+    if (/^-\s+/.test(t)) {
+      if (!inList) { out += '<ul>'; inList = true; }
+      out += `<li>${t.replace(/^-\s+/, '')}</li>`;
+    } else if (/^#{1,3}\s+/.test(t)) {
+      closeList();
+      out += `<h3>${t.replace(/^#{1,3}\s+/, '')}</h3>`;
+    } else if (/^&gt;\s?/.test(t)) {
+      closeList();
+      out += `<blockquote>${t.replace(/^&gt;\s?/, '')}</blockquote>`;
+    } else if (t === '---') {
+      closeList();
+      out += '<hr>';
+    } else if (t === '') {
+      closeList();
+    } else {
+      closeList();
+      out += `<p>${t}</p>`;
+    }
   }
+  closeList();
+  return out.replace(/\u0000(\d+)\u0000/g, (_, i) => codes[+i]);
 }
 
-function renderMd(text) {
-  if (typeof marked === 'undefined') return escHtml(text);
-  return marked.parse(text, { breaks: true, gfm: true });
-}
-
-function renderChatMessages() {
-  const el = document.getElementById('chat-messages');
-  if (!state.chatMessages.length) {
-    el.innerHTML = '<div class="chat-empty dim">No messages yet.<br>Type an observation below or ask a question.</div>';
+function renderChat() {
+  const el = $('#chat-log');
+  if (!state.chat.length) {
+    el.innerHTML = '<div class="sys">No messages yet — note an observation or ask a question below</div>';
     return;
   }
-  el.innerHTML = state.chatMessages.map(m => {
-    const isAssistant = m.role === 'assistant';
-    const cls   = m.role === 'user' ? 'chat-msg-user'
-                : m.type === 'system' ? 'chat-msg-system' : 'chat-msg-assistant';
-    const label = m.role === 'user' ? 'You' : `Muse-IoT ${m.model ? '· ' + m.model : ''}`;
-    const body  = isAssistant
-      ? `<div class="chat-msg-text md">${renderMd(m.text)}</div>`
-      : `<div class="chat-msg-text">${escHtml(m.text)}</div>`;
-    return `<div class="chat-msg ${cls}">
-      <div class="chat-msg-meta">${m.ts_str || ''} <span class="chat-label">${label}</span></div>
-      ${body}
-    </div>`;
+  el.innerHTML = state.chat.map(m => {
+    if (m.role !== 'user' && m.type === 'system') return `<div class="sys">${esc(m.text)}</div>`;
+    const isUser = m.role === 'user';
+    const label = isUser ? 'You' : `Muse${m.model ? ' · ' + esc(m.model) : ''}`;
+    const body = isUser ? `<div class="bubble"><p>${esc(m.text)}</p></div>` : `<div class="bubble">${renderMiniMd(m.text)}</div>`;
+    return `<div class="msg ${isUser ? 'u' : 'a'}"><div class="msg-meta"><span class="num">${esc(m.ts_str || '')}</span><span class="who">${label}</span></div>${body}</div>`;
   }).join('');
   el.scrollTop = el.scrollHeight;
 }
 
-function escHtml(s) {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+async function loadChat() {
+  try {
+    state.chat = await api('/api/chat_history');
+  } catch (e) {
+    state.chat = [];
+    $('#chat-log').innerHTML = `<div class="sys">Could not load history: ${esc(e.message)}</div>`;
+    return;
+  }
+  renderChat();
 }
 
-async function sendMessage() {
-  const input = document.getElementById('chat-input');
-  const send  = document.getElementById('chat-send');
-  const text  = input.value.trim();
-  if (!text) return;
-
-  input.value   = '';
-  input.disabled = true;
-  send.disabled  = true;
-
-  const ts_str = new Date().toLocaleString();
-  state.chatMessages.push({
-    role: 'user',
-    type: text.endsWith('?') ? 'question' : 'observation',
-    text, ts_str,
-  });
-  renderChatMessages();
-
+async function sendChat() {
+  const inp = $('#chat-in'), btn = $('#chat-send');
+  const text = inp.value.trim();
+  if (!text || inp.disabled) return;
+  inp.value = ''; inp.disabled = true; btn.disabled = true;
+  state.chat.push({ role: 'user', type: text.endsWith('?') ? 'question' : 'observation', text, ts_str: new Date().toLocaleString() });
+  renderChat();
+  const log = $('#chat-log');
+  const tp = document.createElement('div');
+  tp.className = 'msg a';
+  tp.innerHTML = '<div class="bubble typing"><i></i><i></i><i></i></div>';
+  log.appendChild(tp); log.scrollTop = log.scrollHeight;
   try {
     const resp = await api('/api/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: text }),
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: text }),
     });
-    state.chatMessages.push({
-      role:  'assistant',
-      type:  resp.type,
-      text:  resp.response,
-      model: resp.model || '',
-      ts_str: new Date().toLocaleString(),
-    });
+    state.chat.push({ role: 'assistant', type: resp.type, text: resp.response, model: resp.model || '', ts_str: new Date().toLocaleString() });
   } catch (e) {
-    state.chatMessages.push({
-      role: 'assistant', type: 'system',
-      text: `Error: ${e.message}`, ts_str: new Date().toLocaleString(),
-    });
+    state.chat.push({ role: 'assistant', type: 'system', text: `Error: ${e.message}`, ts_str: new Date().toLocaleString() });
   }
-
-  renderChatMessages();
-  input.disabled = false;
-  send.disabled  = false;
-  input.focus();
+  renderChat();
+  inp.disabled = false; btn.disabled = false; inp.focus();
 }
 
-// ── Decisions ─────────────────────────────────────────────────────────────────
+// ── Decisions ───────────────────────────────────────────────────────────────
 async function loadDecisions() {
-  const el = document.getElementById('decisions-wrap');
-  try {
-    const decisions = await api('/api/decisions?limit=30');
-    if (!decisions.length) {
-      el.innerHTML = '<div class="empty">No decisions recorded yet</div>';
-      return;
-    }
-    const rows = decisions.map(d => {
-      const cmds = Object.entries(d.commands).map(([k, v]) => cmdBadge(k, v)).join('');
-      const modelShort = (d.model || '').split('-').slice(-2).join('-');
-      return `<tr ${d.was_overridden ? 'class="overridden"' : ''}>
-        <td class="dim" style="white-space:nowrap">${fmtDateTime(d.ts)}</td>
-        <td><span class="phase-pill">${d.phase}</span></td>
-        <td><div class="cmd-row" style="margin:0;gap:4px">${cmds}</div></td>
-        <td class="reason-cell">${escHtml(d.reason)}</td>
-        <td class="dim small" style="white-space:nowrap">${modelShort}<br>${d.latency_ms}ms</td>
-      </tr>`;
-    }).join('');
-
-    el.innerHTML = `<table class="decisions-table">
-      <thead>
-        <tr>
-          <th>Time</th><th>Phase</th><th>Commands</th>
-          <th>Reason</th><th>Model</th>
-        </tr>
-      </thead>
-      <tbody>${rows}</tbody>
-    </table>`;
-  } catch (e) {
-    el.innerHTML = `<div class="dim">Error: ${e.message}</div>`;
-  }
+  state.decisions = await api('/api/decisions?limit=30');
+  renderDecisions();
 }
 
-// ── Events ────────────────────────────────────────────────────────────────────
+function renderDecisions() {
+  const rows = state.decisions.filter(d => state.decFilter === 'all' || d.was_overridden);
+  $('#decisions-body').innerHTML = rows.map(d => {
+    const cmds = Object.entries(d.commands).map(([k, v]) => cmdBadge(k, v)).join('');
+    return `<tr class="${d.was_overridden ? 'hl' : ''}"><td class="ts">${fmtDateTime(d.ts)}</td>
+      <td><span class="phase-tag">${esc(d.phase)}</span></td>
+      <td><div class="cmds mini">${cmds}</div>${d.was_overridden ? '<span class="ovr">SAFETY OVERRIDE</span>' : ''}</td>
+      <td><span class="rsn">${esc(d.reason)}</span></td>
+      <td class="model-cell">${esc(d.model)}<br>${d.latency_ms}ms</td></tr>`;
+  }).join('') || '<tr><td class="dim" colspan="5">No decisions recorded yet</td></tr>';
+}
+
+// ── Events ──────────────────────────────────────────────────────────────────
 async function loadEvents() {
-  const el = document.getElementById('events-wrap');
-  try {
-    const events = await api('/api/events?limit=50&hours=48');
-    if (!events.length) {
-      el.innerHTML = '<div class="empty">No events in the last 48h</div>';
-      return;
-    }
-    const icons = {
-      SENSOR_ANOMALY:      '🔴',
-      SAFETY_OVERRIDE:     '⚠️',
-      ACTUATOR_FIRED:      '⚡',
-      DOMAIN_STARTED:      'ℹ️',
-      POLL_ERROR:          '❌',
-      LLM_FAILURE_SAFE_OFF:'🛡️',
-      DURATION_LIMIT:      '⏱️',
-      ACTUATOR_NO_EFFECT:  '🔇',
-    };
-    const rows = events.map(e => `
-      <div class="event-row sev-${e.severity}">
-        <span class="event-icon">${icons[e.type] || '●'}</span>
-        <span class="event-ts">${fmtDateTime(e.ts)}</span>
-        <span class="event-type">${e.type}</span>
-        <span class="event-note">${escHtml(e.note || '')}</span>
-      </div>`).join('');
-
-    el.innerHTML = `<div class="events-feed">${rows}</div>`;
-  } catch (e) {
-    el.innerHTML = `<div class="dim">Error: ${e.message}</div>`;
-  }
+  state.events = await api('/api/events?limit=50&hours=48');
+  renderEvents();
+  updateEventBadge();
 }
 
-// ── Actuators ─────────────────────────────────────────────────────────────────
-async function loadActuators() {
-  try {
-    const actuators = await api('/api/actuators');
-    state.actuators = actuators;
-    renderActuators(actuators);
-  } catch (e) {
-    document.getElementById('actuator-list').innerHTML =
-      `<div class="dim" style="padding:12px">Error: ${e.message}</div>`;
-  }
+function renderEvents() {
+  const rows = state.events.filter(e => state.evFilter === 'all' || e.severity === state.evFilter);
+  $('#events-feed').innerHTML = rows.length ? rows.map(feedRow).join('')
+    : '<div class="empty-block">No events match this filter</div>';
 }
 
-function renderActuators(actuators) {
-  const el = document.getElementById('actuator-list');
-  if (!actuators || actuators.length === 0) {
-    el.innerHTML = '<div class="dim" style="padding:12px">No actuators configured</div>';
-    return;
-  }
-  el.innerHTML = actuators.map(a => {
-    const isOn   = a.state === 'on';
-    const isOff  = a.state === 'off';
-    const dotCls = isOn ? 'actuator-dot on' : isOff ? 'actuator-dot off' : 'actuator-dot unknown';
-    const stateLabel = isOn ? 'ON' : isOff ? 'OFF' : a.state;
-    const age = a.ts ? timeAgo(Math.floor(Date.now() / 1000 - a.ts)) : '';
-    return `<div class="actuator-item" id="act-${a.id}">
-      <div class="actuator-info">
-        <span class="${dotCls}"></span>
-        <span class="actuator-name">${a.name}</span>
-        <span class="actuator-state ${isOn ? 'state-on' : isOff ? 'state-off' : ''}">${stateLabel}</span>
-        ${age ? `<span class="actuator-age dim">${age}</span>` : ''}
-      </div>
-      <div class="actuator-btns">
-        <button class="act-btn act-btn-on ${isOn ? 'active' : ''}"
-          onclick="controlActuator('${a.id}', 'on')" ${isOn ? 'disabled' : ''}>ON</button>
-        <button class="act-btn act-btn-off ${isOff ? 'active' : ''}"
-          onclick="controlActuator('${a.id}', 'off')" ${isOff ? 'disabled' : ''}>OFF</button>
-      </div>
-    </div>`;
-  }).join('');
-}
-
-async function controlActuator(id, value) {
-  // Optimistic UI update
-  const row = document.getElementById(`act-${id}`);
-  if (row) row.style.opacity = '0.5';
-
-  try {
-    await api(`/api/actuator/${id}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ value }),
-    });
-    // Refresh actuator list after short delay so DB event is written
-    setTimeout(loadActuators, 800);
-  } catch (e) {
-    if (row) row.style.opacity = '1';
-    alert(`Failed to control ${id}: ${e.message}`);
-  }
-}
-
-// ── Readings tab ─────────────────────────────────────────────────────────────
-
-const UNIT_DISPLAY = {
-  celsius: '°C',
-  fahrenheit: '°F',
-  percent: '%',
-  mmHg: 'mmHg',
-  bpm: 'bpm',
-  lux: 'lux',
-  ppm: 'ppm',
-};
-
-function unitLabel(unit) {
-  return UNIT_DISPLAY[unit] || unit || '';
-}
-
+// ── Readings ────────────────────────────────────────────────────────────────
 async function loadReadings() {
-  try {
-    const [domainSensors, latest] = await Promise.all([
-      api('/api/domain/sensors'),
-      api('/api/sensors/latest'),
-    ]);
-    renderReadingsForm(domainSensors, latest);
-  } catch (e) {
-    document.getElementById('readings-form').innerHTML =
-      `<div class="card dim" style="padding:20px">Error: ${e.message}</div>`;
-  }
-}
-
-function renderReadingsForm(domainSensors, latest) {
-  const wrap = document.getElementById('readings-form');
-  if (!domainSensors.length) {
-    wrap.innerHTML = '<div class="card dim" style="padding:20px">No sensors configured.</div>';
+  const [domainSensors, latest] = await Promise.all([api('/api/domain/sensors'), api('/api/sensors/latest')]);
+  const byPlugin = {};
+  domainSensors.forEach(s => { (byPlugin[s.plugin] = byPlugin[s.plugin] || []).push(s); });
+  const groups = Object.entries(byPlugin);
+  if (!groups.length) {
+    $('#readings-groups').innerHTML = '<div class="panel dim" style="text-align:center">No sensors configured.</div>';
     return;
   }
-
-  // Group sensors by plugin
-  const byPlugin = {};
-  domainSensors.forEach(s => {
-    if (!byPlugin[s.plugin]) byPlugin[s.plugin] = [];
-    byPlugin[s.plugin].push(s);
-  });
-
-  wrap.innerHTML = Object.entries(byPlugin).map(([plugin, sensors]) => {
+  $('#readings-groups').innerHTML = groups.map(([plugin, sensors], gi) => {
+    const title = plugin.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
     const rows = sensors.map(s => {
       const cur = latest[s.id];
-      const curStr = cur ? `${cur.value.toFixed(1)} ${unitLabel(s.unit)}` : '—';
-      const ageStr = cur ? timeAgo(cur.age_sec) : '';
-      const hint = s.hint ? `<div class="reading-hint dim">${escHtml(s.hint)}</div>` : '';
-      const rangeAttr = [
-        s.min != null ? `min="${s.min}"` : '',
-        s.max != null ? `max="${s.max}"` : '',
-      ].filter(Boolean).join(' ');
-      const placeholder = s.min != null && s.max != null
-        ? `${s.min} – ${s.max}` : '';
-
-      return `<div class="reading-row" id="reading-row-${s.id}">
-        <div class="reading-info">
-          <span class="reading-name">${escHtml(s.name)}</span>
-          <span class="reading-unit dim">${unitLabel(s.unit)}</span>
-          <span class="reading-current dim" id="reading-cur-${s.id}">${curStr}${ageStr ? ` · ${ageStr}` : ''}</span>
-        </div>
-        ${hint}
-        <div class="reading-input-row">
-          <input type="number" step="any" ${rangeAttr}
-            placeholder="${placeholder}"
-            class="reading-input" id="reading-input-${s.id}"
-            onkeydown="if(event.key==='Enter') submitReading('${s.id}', '${unitLabel(s.unit)}')">
-          <button class="btn-reading-submit"
-            onclick="submitReading('${s.id}', '${unitLabel(s.unit)}')">Save</button>
-          <span class="reading-feedback dim" id="reading-fb-${s.id}"></span>
-        </div>
-      </div>`;
+      const curStr = cur ? `${cur.value.toFixed(1)} ${unitLabel(s.unit)} · ${timeAgo(cur.age_sec)}` : '—';
+      const key = `${gi}-${s.id}`;
+      return `<div class="read-row"><div><div class="read-name">${esc(s.name)} <span class="dim" style="font-weight:400">(${esc(unitLabel(s.unit))})</span></div>
+          <div class="read-sub">current <span class="cur-now num" id="cur-${key}">${esc(curStr)}</span></div></div>
+        <input class="read-in num" type="number" step="any"
+          ${s.min != null ? `min="${s.min}"` : ''} ${s.max != null ? `max="${s.max}"` : ''}
+          placeholder="${s.min != null && s.max != null ? `${s.min} – ${s.max}` : ''}"
+          id="in-${key}" aria-label="${esc(s.name)}" data-sid="${esc(s.id)}" data-unit="${esc(unitLabel(s.unit))}">
+        <button class="btn ghost" data-save="${key}" style="justify-content:center">Save</button>
+        <div class="read-fb" id="fb-${key}"></div>
+        ${s.hint ? `<div class="read-hint">${esc(s.hint)}</div>` : ''}</div>`;
     }).join('');
-
-    const pluginTitle = plugin.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-    return `<div class="card readings-group">
-      <div class="card-header"><h3>${pluginTitle}</h3></div>
-      ${rows}
-    </div>`;
+    return `<div class="panel read-group"><div class="panel-title"><h2 style="font-size:13px">${esc(title)}</h2></div>${rows}</div>`;
   }).join('');
+  document.querySelectorAll('[data-save]').forEach(b => b.addEventListener('click', () => submitReading(b.dataset.save)));
+  document.querySelectorAll('.read-in').forEach(inp => inp.addEventListener('keydown', e => {
+    if (e.key === 'Enter') submitReading(inp.id.replace(/^in-/, ''));
+  }));
 }
 
-async function submitReading(sensorId, unit) {
-  const input = document.getElementById(`reading-input-${sensorId}`);
-  const fb    = document.getElementById(`reading-fb-${sensorId}`);
-  const btn   = input.nextElementSibling;
-
-  const raw = input.value.trim();
-  if (!raw) { fb.textContent = 'Enter a value'; return; }
-  const value = parseFloat(raw);
-  if (isNaN(value)) { fb.textContent = 'Invalid number'; return; }
-
-  input.disabled = true;
-  btn.disabled   = true;
+async function submitReading(key) {
+  const inp = $(`#in-${CSS.escape(key)}`), fb = $(`#fb-${key}`);
+  const sid = inp.dataset.sid, unit = inp.dataset.unit;
+  const v = parseFloat(inp.value);
+  if (inp.value.trim() === '' || isNaN(v)) { fb.textContent = 'Enter a number'; fb.classList.add('err'); return; }
+  inp.disabled = true;
+  fb.classList.remove('err');
   fb.textContent = 'Saving…';
-
   try {
-    const resp = await api(`/api/sensor/${sensorId}`, {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ value }),
+    const resp = await api(`/api/sensor/${sid}`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ value: v }),
     });
     if (resp.error) throw new Error(resp.error);
-
-    // Optimistic current-value update
-    const cur = document.getElementById(`reading-cur-${sensorId}`);
-    if (cur) cur.textContent = `${value.toFixed(1)} ${unit} · just now`;
-
-    input.value    = '';
+    const cur = $(`#cur-${CSS.escape(key)}`);
+    if (cur) cur.textContent = `${v.toFixed(1)} ${unit} · just now`;
+    inp.value = '';
     fb.textContent = '✓ Saved';
     setTimeout(() => { fb.textContent = ''; }, 3000);
   } catch (e) {
     fb.textContent = `Error: ${e.message}`;
+    fb.classList.add('err');
   } finally {
-    input.disabled = false;
-    btn.disabled   = false;
-    input.focus();
+    inp.disabled = false;
+    inp.focus();
   }
 }
 
-// ── SSE live stream ───────────────────────────────────────────────────────────
+// ── SSE live stream ─────────────────────────────────────────────────────────
 function connectStream() {
-  const dot = document.getElementById('conn-dot');
-  const es  = new EventSource('/api/stream');
-
-  es.onopen = () => dot.classList.add('live');
-  es.onerror = () => {
-    dot.classList.remove('live');
-    // EventSource auto-reconnects — no manual retry needed
-  };
-
-  es.onmessage = (e) => {
+  const dot = $('#conn-dot'), label = $('#conn-label');
+  const es = new EventSource('/api/stream');
+  es.onopen = () => { dot.classList.remove('off'); label.textContent = 'Live'; };
+  es.onerror = () => { dot.classList.add('off'); label.textContent = 'Reconnecting…'; };
+  es.onmessage = async e => {
     try {
       const payload = JSON.parse(e.data);
       if (payload.error) return;
-
       if (payload.sensors) state.sensors = payload.sensors;
-      if (payload.status)  state.status  = payload.status;
-
-      // Update header badges from SSE
       if (payload.status) {
-        document.getElementById('day-badge').textContent   = `Day ${payload.status.day}`;
-        document.getElementById('phase-badge').textContent = payload.status.phase;
+        state.status = payload.status;
+        $('#day-chip').textContent = `Day ${payload.status.day}`;
+        $('#phase-chip').textContent = payload.status.phase;
       }
-
-      // Refresh visible tab without a full reload
-      if (state.activeTab === 'dashboard' && payload.sensors) {
-        renderSensorCards(payload.sensors, state.profile);
-        if (state.profile) renderProfilePanel(payload.status, state.profile, payload.sensors);
-        if (payload.status?.last_decision) renderLastDecision(payload.status.last_decision);
-        if (payload.actuators) renderActuators(payload.actuators);
+      if (state.view === 'dashboard' && payload.sensors) {
+        renderSensorCards(payload.sensors);
+        if (state.profile) renderProfileBanner(state.profile, payload.sensors);
+        if (payload.status && payload.status.last_decision) renderLastDecision(payload.status.last_decision);
+        if (payload.actuators) { state.actuators = payload.actuators; renderActuators(payload.actuators); }
+        try {
+          state.nodes = await api('/api/nodes');
+          renderNodeSummary(state.nodes);
+          const recent = await api('/api/events?limit=5&hours=48');
+          renderRecentFeed(recent);
+          updateEventBadge();
+        } catch (err) { /* keep stale panels on transient failure */ }
+      }
+      if (state.view === 'nodes') {
+        try {
+          state.nodes = await api('/api/nodes');
+          renderNodeList(); renderNodeDetail(); renderMatrix();
+        } catch (err) { /* keep stale */ }
       }
     } catch { /* malformed message — ignore */ }
   };
 }
 
-// ── Init ──────────────────────────────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', () => {
-  // Tab switching
-  document.querySelectorAll('.tab-btn').forEach(btn =>
-    btn.addEventListener('click', () => switchTab(btn.dataset.tab))
-  );
+// ── Init ────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', async () => {
+  document.querySelectorAll('.nav-btn').forEach(b => b.addEventListener('click', () => goto(b.dataset.view)));
+  document.querySelectorAll('[data-goto]').forEach(b => b.addEventListener('click', () => goto(b.dataset.goto)));
+  document.querySelectorAll('#range-seg button').forEach(b => b.addEventListener('click', () => loadChart(+b.dataset.h)));
+  document.querySelectorAll('#ev-filters .fchip').forEach(b => b.addEventListener('click', () => {
+    document.querySelectorAll('#ev-filters .fchip').forEach(x => x.classList.remove('active'));
+    b.classList.add('active'); state.evFilter = b.dataset.f; renderEvents();
+  }));
+  document.querySelectorAll('#dec-filters .fchip').forEach(b => b.addEventListener('click', () => {
+    document.querySelectorAll('#dec-filters .fchip').forEach(x => x.classList.remove('active'));
+    b.classList.add('active'); state.decFilter = b.dataset.f; renderDecisions();
+  }));
+  $('#chat-send').addEventListener('click', sendChat);
+  $('#chat-in').addEventListener('keydown', e => { if (e.key === 'Enter') sendChat(); });
+  window.addEventListener('resize', () => { if (state.view === 'dashboard') drawChart(); });
 
-  // Chart range buttons
-  document.querySelectorAll('.range-btn').forEach(btn =>
-    btn.addEventListener('click', () => loadChart(parseInt(btn.dataset.hours)))
-  );
+  try {
+    const meta = await api('/api/domain/sensors');
+    meta.forEach(s => {
+      if (!state.sensorMeta[s.id]) {
+        state.sensorMeta[s.id] = s;
+        state.metaOrder.push(s.id);
+      }
+    });
+  } catch (e) { console.error('Sensor metadata failed:', e); }
 
-  // Chat
-  document.getElementById('chat-send').addEventListener('click', sendMessage);
-  document.getElementById('chat-input').addEventListener('keydown', e => {
-    if (e.key === 'Enter' && !e.shiftKey) sendMessage();
-  });
-
-  // Start SSE
   connectStream();
+  goto('dashboard');
 
-  // Initial dashboard load
-  loadDashboard();
-
-  // Refresh dashboard data every 2 minutes for last-decision + day counter
-  setInterval(() => {
-    if (state.activeTab === 'dashboard') loadDashboard();
-  }, 120_000);
+  setInterval(() => { LOADERS[state.view]().catch(e => console.error('Refresh failed:', e)); }, 120_000);
 });
