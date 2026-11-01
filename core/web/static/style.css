@@ -242,6 +242,14 @@ td .rsn{color:var(--muted);font-size:12.5px;max-width:380px;display:block;line-h
   padding:5px 13px;border-radius:99px}
 .fchip:hover{color:var(--text)}
 .fchip.active{background:var(--green-dim);border-color:var(--green-line);color:var(--green)}
+.type-select{background:var(--panel2);border:1px solid var(--line);color:var(--text);
+  font-size:12px;font-weight:600;padding:5px 10px;border-radius:99px;outline:none;max-width:200px}
+.type-select:focus{border-color:var(--green-line)}
+.feed-row.expandable{cursor:pointer}
+.feed-row.expandable:hover .feed-type{color:var(--green)}
+.feed-row.expanded .feed-note{white-space:normal;overflow:visible;text-overflow:clip}
+.feed-chev{width:13px;height:13px;color:var(--faint);flex-shrink:0;transition:transform .15s}
+.feed-row.expanded .feed-chev{transform:rotate(180deg)}
 
 /* Chat */
 .chat-shell{background:var(--panel);border:1px solid var(--line-soft);border-radius:var(--r-lg);overflow:hidden;

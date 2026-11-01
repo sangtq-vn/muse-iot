@@ -50,6 +50,7 @@ const state = {
   historyHours: 24,
   chat: [],
   evFilter: 'all',
+  evType: 'all',
   decFilter: 'all',
   activeNode: null,
 };
@@ -488,10 +489,24 @@ const EVENT_ICON = {
 };
 function feedRow(e) {
   const sev = e.severity === 'error' ? 'err' : e.severity === 'warn' ? 'warn' : 'info';
-  return `<div class="feed-row"><span class="feed-ic fi-${sev}"><svg class="ic"><use href="#${EVENT_ICON[e.type] || 'i-info'}"/></svg></span>
+  return `<div class="feed-row expandable" tabindex="0" role="button" title="Click to expand"><span class="feed-ic fi-${sev}"><svg class="ic"><use href="#${EVENT_ICON[e.type] || 'i-info'}"/></svg></span>
     <div class="feed-body"><span class="feed-type">${esc(e.type.replace(/_/g, ' '))}</span>
     <div class="feed-note">${esc(e.note || '')}</div></div>
+    <svg class="ic feed-chev"><use href="#i-down"/></svg>
     <span class="feed-ts num">${fmtDateTime(e.ts)}</span></div>`;
+}
+
+function bindFeedExpand(el) {
+  el.addEventListener('click', e => {
+    const row = e.target.closest('.feed-row');
+    if (row) row.classList.toggle('expanded');
+  });
+  el.addEventListener('keydown', e => {
+    if ((e.key === 'Enter' || e.key === ' ') && e.target.classList.contains('feed-row')) {
+      e.preventDefault();
+      e.target.classList.toggle('expanded');
+    }
+  });
 }
 
 function renderRecentFeed(events) {
@@ -762,12 +777,25 @@ function renderDecisions() {
 // ── Events ──────────────────────────────────────────────────────────────────
 async function loadEvents() {
   state.events = await api('/api/events?limit=50&hours=48');
+  renderEventTypeOptions();
   renderEvents();
   updateEventBadge();
 }
 
+function renderEventTypeOptions() {
+  const sel = $('#ev-type');
+  const prev = sel.value || 'all';
+  const types = [...new Set(state.events.map(e => e.type))].sort();
+  sel.innerHTML = '<option value="all">All types</option>' + types.map(t =>
+    `<option value="${esc(t)}">${esc(t.replace(/_/g, ' '))}</option>`).join('');
+  sel.value = types.includes(prev) ? prev : 'all';
+  state.evType = sel.value;
+}
+
 function renderEvents() {
-  const rows = state.events.filter(e => state.evFilter === 'all' || e.severity === state.evFilter);
+  const rows = state.events.filter(e =>
+    (state.evFilter === 'all' || e.severity === state.evFilter) &&
+    (state.evType === 'all' || e.type === state.evType));
   $('#events-feed').innerHTML = rows.length ? rows.map(feedRow).join('')
     : '<div class="empty-block">No events match this filter</div>';
 }
@@ -881,6 +909,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.querySelectorAll('#ev-filters .fchip').forEach(x => x.classList.remove('active'));
     b.classList.add('active'); state.evFilter = b.dataset.f; renderEvents();
   }));
+  $('#ev-type').addEventListener('change', e => { state.evType = e.target.value; renderEvents(); });
+  bindFeedExpand($('#events-feed'));
+  bindFeedExpand($('#recent-feed'));
   document.querySelectorAll('#dec-filters .fchip').forEach(b => b.addEventListener('click', () => {
     document.querySelectorAll('#dec-filters .fchip').forEach(x => x.classList.remove('active'));
     b.classList.add('active'); state.decFilter = b.dataset.f; renderDecisions();
