@@ -113,7 +113,7 @@ fan power circuit in the usual way.
 
 Open:
 ```
-plugins/devices/esp32_mqtt/firmware/esp8266_nodemcu/arduino/muse-iot_nodemcu/muse-iot_nodemcu.ino
+plugins/devices/esp32_mqtt/firmware/esp8266_nodemcu/arduino/muse_iot_nodemcu/muse_iot_nodemcu.ino
 ```
 
 ### 2.4 Fill in credentials
@@ -304,6 +304,7 @@ docker compose cp muse-iot:/root/.muse-iot/history ./history-backup
 | No `[MQTT]` lines for actuator commands | Muse-IoT not connected to same broker | Check `broker_host: mqtt` in config.yaml |
 | ESP8266 won't connect to MQTT | Wrong broker IP in sketch | Use your computer's LAN IP, not `localhost` |
 | `muse-iot` container exits immediately | `api_key` still has placeholder | Paste the real key into `config.yaml` |
+| UI/chat `MQTT publish timed out` for an actuator | UI process can't reach the broker at `broker_host:port` | From the same machine/env as the UI: `mosquitto_pub -h <host> -p 1883 -t test -m hi`. Check broker is running, host/port correct (`mqtt` only resolves inside compose), firewall open on 1883 |
 | LLM not seeing sensor data | `broker_host` still set to LAN IP | Change to `mqtt` in `config.yaml` (step 3.2) |
 | Port already in use (1883) | Another MQTT broker running locally | `sudo lsof -i :1883` and stop it |
 
@@ -323,8 +324,8 @@ muse-iot/
     │       └── firmware/
     │           └── esp8266_nodemcu/
     │               └── arduino/
-    │                   └── muse-iot_nodemcu/
-    │                       └── muse-iot_nodemcu.ino ← flash this to the board
+    │                   └── muse_iot_nodemcu/
+    │                       └── muse_iot_nodemcu.ino ← flash this to the board
     ├── sensors/
     │   ├── dht11/sensor.yaml                        ← DHT11 plugin manifest
     │   └── resistive_soil/sensor.yaml               ← soil sensor plugin manifest

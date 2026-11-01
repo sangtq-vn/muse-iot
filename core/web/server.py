@@ -21,6 +21,7 @@ from pydantic import BaseModel
 
 from core.history.backends.sqlite_backend import SQLiteHistoryStore
 from core.history.ihistory_store import Event, SensorReading
+from core.mqtt_pub import publish_actuator, publish_sensor
 from core.web.nodes import build_nodes
 
 log = logging.getLogger("muse-iot.web")
@@ -160,21 +161,6 @@ def _call_text_llm(system: str, user: str) -> str:
     except Exception as e:
         log.error(f"Chat LLM error: {e}")
         return f"Could not get a response: {e}"
-
-
-# ── MQTT publish helper ───────────────────────────────────────────────────────
-
-def _mqtt_publish(topic: str, payload: str):
-    """One-shot MQTT publish — no persistent connection required."""
-    import paho.mqtt.publish as mqtt_publish
-    device_cfg = _config.get("device", {}).get("config", {})
-    host = device_cfg.get("broker_host", "localhost")
-    port = int(device_cfg.get("broker_port", 1883))
-    mqtt_publish.single(topic, payload, hostname=host, port=port)
-
-
-def _topic_prefix() -> str:
-    return _config.get("device", {}).get("config", {}).get("topic_prefix", "muse-iot")
 
 
 def _parse_actuator_command(text: str):
@@ -420,10 +406,8 @@ def control_actuator(actuator_id: str, req: ActuatorRequest):
     if req.value not in ("on", "off"):
         return {"error": "value must be 'on' or 'off'"}
 
-    topic   = f"{_topic_prefix()}/actuator/{actuator_id}/set"
-    payload = json.dumps({"value": req.value, "ts": time.time(), "source": "manual"})
     try:
-        _mqtt_publish(topic, payload)
+        publish_actuator(_config, actuator_id, req.value, source="manual")
     except Exception as e:
         log.error(f"MQTT publish failed for {actuator_id}: {e}")
         return {"error": f"MQTT publish failed: {e}"}
@@ -455,9 +439,8 @@ def submit_sensor(sensor_id: str, req: SensorReadingRequest):
         return {"error": f"Unknown sensor: {sensor_id}"}
 
     ts = time.time()
-    topic = f"{_topic_prefix()}/sensors/{sensor_id}"
     try:
-        _mqtt_publish(topic, str(req.value))
+        publish_sensor(_config, sensor_id, req.value)
     except Exception as e:
         log.warning(f"MQTT publish failed for sensor {sensor_id}: {e}")
 

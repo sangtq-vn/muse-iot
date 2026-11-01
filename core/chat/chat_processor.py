@@ -14,6 +14,8 @@ import time
 from datetime import datetime
 from pathlib import Path
 
+from core.mqtt_pub import publish_actuator
+
 log = logging.getLogger("muse-iot.chat")
 
 
@@ -73,11 +75,8 @@ class ChatProcessor:
 
     def _send_actuator(self, actuator_id: str, value: str) -> str:
         from core.history.ihistory_store import Event
-        topic_prefix = self._config.get("device", {}).get("config", {}).get("topic_prefix", "muse-iot")
-        topic   = f"{topic_prefix}/actuator/{actuator_id}/set"
-        payload = json.dumps({"value": value, "ts": time.time(), "source": "chat"})
         try:
-            self._mqtt_publish(topic, payload)
+            publish_actuator(self._config, actuator_id, value, source="chat")
         except Exception as e:
             log.error(f"MQTT publish failed for {actuator_id}: {e}")
             return f"MQTT error: {e}"
@@ -88,15 +87,6 @@ class ChatProcessor:
                 note=f"{actuator_id}={value} (chat)",
             ))
         return f"Sent: {actuator_id} → {value}"
-
-    def _mqtt_publish(self, topic: str, payload: str):
-        import paho.mqtt.publish as mqtt_pub
-        device_cfg = self._config.get("device", {}).get("config", {})
-        mqtt_pub.single(
-            topic, payload,
-            hostname=device_cfg.get("broker_host", "localhost"),
-            port=int(device_cfg.get("broker_port", 1883)),
-        )
 
     # ── Observation ───────────────────────────────────────────────────────────
 

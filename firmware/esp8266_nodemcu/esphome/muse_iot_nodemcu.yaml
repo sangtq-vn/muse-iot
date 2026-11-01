@@ -3,7 +3,7 @@
 #   D2 (GPIO4) — DHT11 temperature & humidity
 #   A0         — Resistive soil moisture sensor (LM393 board, analog output)
 #
-# Flash: esphome run muse-iot_nodemcu.yaml
+# Flash: esphome run muse_iot_nodemcu.yaml
 
 substitutions:
   device_name: muse-iot-nodemcu
