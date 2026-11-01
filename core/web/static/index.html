@@ -14,6 +14,7 @@
 <symbol id="i-chip" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 1v4M15 1v4M9 19v4M15 19v4M1 9h4M1 15h4M19 9h4M19 15h4"/></symbol>
 <symbol id="i-pulse" viewBox="0 0 24 24"><path d="M2 12h4l3-8 4 16 3-8h6"/></symbol>
 <symbol id="i-clip" viewBox="0 0 24 24"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4a3 3 0 0 1 6 0"/><path d="M9 11h6M9 15h4"/></symbol>
+<symbol id="i-smile" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="9" cy="10" r="1.3" fill="currentColor" stroke="none"/><circle cx="15" cy="10" r="1.3" fill="currentColor" stroke="none"/><path d="M8 14.5c1 1.6 2.5 2.3 4 2.3s3-.7 4-2.3"/></symbol>
 <symbol id="i-nodes" viewBox="0 0 24 24"><rect x="2" y="9" width="7" height="7" rx="1.5"/><rect x="15" y="2" width="7" height="7" rx="1.5"/><rect x="15" y="15" width="7" height="7" rx="1.5"/><path d="M9 11.5l6-4M9 13.5l6 4"/></symbol>
 <symbol id="i-therm" viewBox="0 0 24 24"><path d="M10 4a2 2 0 0 1 4 0v9.3a4.5 4.5 0 1 1-4 0z"/><circle cx="12" cy="17.5" r="1.6"/></symbol>
 <symbol id="i-drop" viewBox="0 0 24 24"><path d="M12 3s6 6.3 6 11a6 6 0 0 1-12 0c0-4.7 6-11 6-11z"/></symbol>
@@ -45,6 +46,7 @@
     <button class="nav-btn" data-view="events"><svg class="ic"><use href="#i-pulse"/></svg>Events<span class="nav-badge" id="events-badge" hidden></span></button>
     <div class="nav-label">Grow</div>
     <button class="nav-btn" data-view="profile"><svg class="ic"><use href="#i-sprout"/></svg>Profile</button>
+    <button class="nav-btn" data-view="plantpal"><svg class="ic"><use href="#i-smile"/></svg>PlantPal</button>
     <button class="nav-btn" data-view="readings"><svg class="ic"><use href="#i-clip"/></svg>Readings</button>
     <div class="nav-label">Intelligence</div>
     <button class="nav-btn" data-view="chat"><svg class="ic"><use href="#i-chat"/></svg>Chat</button>
@@ -135,6 +137,159 @@
             <button class="btn ghost" data-goto="events" style="padding:6px 13px;font-size:12px">View all</button>
           </div>
           <div class="act-feed" id="recent-feed"></div>
+        </div>
+      </section>
+
+      <!-- ══ PLANTPAL ══ -->
+      <section id="view-plantpal" class="view">
+        <div class="pp-layout">
+          <div class="panel pp-stage-panel">
+            <div class="panel-title"><svg class="ic"><use href="#i-smile"/></svg><h2>PlantPal</h2>
+              <span class="spacer"></span>
+              <span class="chip green" id="pp-mood-badge">—</span>
+              <span class="chip blue" id="pp-growth-badge">—</span>
+            </div>
+            <div class="stage">
+              <div class="bubble" id="pp-bubble">Waking up…</div>
+              <div class="pp-sensors" id="pp-sensors"></div>
+              <svg viewBox="0 0 560 360" role="img" aria-label="PlantPal character">
+                <g class="fx" id="fx-breeze" opacity="0">
+                  <path d="M120 120 q30 -14 70 -6 M120 150 q30 -14 70 -6" stroke="#7dd3fc" stroke-width="5" fill="none" stroke-linecap="round"/>
+                </g>
+                <g class="fx" id="fx-badmote" opacity="0">
+                  <circle cx="200" cy="120" r="8" fill="#7d8aa0"/><circle cx="380" cy="100" r="6" fill="#7d8aa0"/><circle cx="420" cy="150" r="7" fill="#7d8aa0"/>
+                </g>
+                <g class="fx" id="fx-rays" opacity="0">
+                  <path d="M470 130 L428 158 M478 165 L434 168 M470 200 L430 182" stroke="#ffd166" stroke-width="7" stroke-linecap="round"/>
+                </g>
+                <g id="grow7" opacity="0">
+                  <path d="M280 250 c-4 -44 4 -74 0 -100" stroke="#4caf50" stroke-width="9" fill="none" stroke-linecap="round"/>
+                  <path d="M280 208 c-34 -4 -52 -22 -56 -50 30 2 50 20 56 50z" fill="#66bb6a"/>
+                  <path d="M280 188 c34 -4 52 -22 56 -50 -30 2 -50 20 -56 50z" fill="#43a047"/>
+                  <circle cx="272" cy="242" r="9" fill="#ff7043"/><circle cx="289" cy="236" r="9" fill="#ff7043"/><circle cx="280" cy="228" r="4" fill="#5a3a22"/>
+                </g>
+                <g id="grow0" opacity="0"><ellipse cx="280" cy="252" rx="26" ry="13" fill="#a9744f"/><path d="M280 252 c0 -10 6 -16 14 -18" stroke="#7dc383" stroke-width="7" fill="none" stroke-linecap="round"/><circle cx="296" cy="233" r="6" fill="#8fd694"/></g>
+                <g id="grow1" opacity="0">
+                  <path d="M280 252 v-46" stroke="#4caf50" stroke-width="8" stroke-linecap="round"/>
+                  <path d="M280 222 c-26 -2 -40 -16 -42 -36 24 2 38 14 42 36z" fill="#66bb6a"/>
+                  <path d="M280 222 c26 -2 40 -16 42 -36 -24 2 -38 14 -42 36z" fill="#43a047"/>
+                </g>
+                <g id="grow2">
+                  <g id="plantSway">
+                    <g id="plantDroop">
+                      <path d="M280 252 v-84" stroke="#4caf50" stroke-width="9" stroke-linecap="round"/>
+                      <path d="M280 200 c-36 -4 -56 -24 -58 -54 32 4 52 22 58 54z" fill="#66bb6a"/>
+                      <path d="M280 184 c36 -4 56 -24 58 -54 -32 4 -52 22 -58 54z" fill="#43a047"/>
+                      <path d="M280 216 c-24 -2 -38 -14 -40 -34 22 2 34 12 40 34z" fill="#81c784"/>
+                    </g>
+                  </g>
+                  <g id="char">
+                    <circle cx="280" cy="228" r="34" fill="#fff8ee" stroke="#e8d9bd" stroke-width="3"/>
+                    <g id="eyesOpen">
+                      <ellipse cx="268" cy="224" rx="5" ry="7" fill="#2b2620"/>
+                      <ellipse cx="292" cy="224" rx="5" ry="7" fill="#2b2620"/>
+                      <circle cx="269.5" cy="221.5" r="1.8" fill="#fff"/><circle cx="293.5" cy="221.5" r="1.8" fill="#fff"/>
+                    </g>
+                    <g id="eyesHappy" opacity="0">
+                      <path d="M262 226 q6 -9 12 0 M286 226 q6 -9 12 0" stroke="#2b2620" stroke-width="3" fill="none" stroke-linecap="round"/>
+                    </g>
+                    <g id="eyesSad" opacity="0">
+                      <path d="M262 222 q6 7 12 0 M286 222 q6 7 12 0" stroke="#2b2620" stroke-width="3" fill="none" stroke-linecap="round"/>
+                    </g>
+                    <ellipse cx="258" cy="236" rx="6" ry="3.6" fill="#ffc4c4" opacity=".9"/>
+                    <ellipse cx="302" cy="236" rx="6" ry="3.6" fill="#ffc4c4" opacity=".9"/>
+                    <path id="mouth" d="M271 236 q9 8 18 0" stroke="#2b2620" stroke-width="3" fill="none" stroke-linecap="round"/>
+                    <g id="tear" opacity="0"><ellipse cx="297" cy="240" rx="4" ry="7" fill="#6cb8f0"/></g>
+                    <g class="fx" id="fx-sparkle" opacity="0">
+                      <path d="M238 196 l2.5 6 6 2.5 -6 2.5 -2.5 6 -2.5 -6 -6 -2.5 6 -2.5z" fill="#ffd166"/>
+                      <path d="M322 196 l2 5 5 2 -5 2 -2 5 -2 -5 -5 -2 5 -2z" fill="#ffd166"/>
+                      <path d="M280 168 l2.5 6 6 2.5 -6 2.5 -2.5 6 -2.5 -6 -6 -2.5 6 -2.5z" fill="#ffe9a8"/>
+                    </g>
+                  </g>
+                </g>
+                <g id="grow3" opacity="0">
+                  <path d="M280 252 v-96" stroke="#4caf50" stroke-width="10" stroke-linecap="round"/>
+                  <path d="M280 196 c-40 -4 -62 -26 -64 -60 36 4 58 24 64 60z" fill="#66bb6a"/>
+                  <path d="M280 180 c40 -4 62 -26 64 -60 -36 4 -58 24 -64 60z" fill="#43a047"/>
+                  <circle cx="252" cy="168" r="13" fill="#ff7043"/><circle cx="310" cy="160" r="13" fill="#ff7043"/>
+                  <circle cx="248" cy="164" r="4" fill="#ffb59e"/><circle cx="306" cy="156" r="4" fill="#ffb59e"/>
+                  <path d="M252 155 q2 -6 8 -7 M310 147 q2 -6 8 -7" stroke="#2f6b33" stroke-width="4" fill="none" stroke-linecap="round"/>
+                </g>
+                <g class="fx" id="fx-water" opacity="0">
+                  <g stroke="#1e6fd9" stroke-width="4" stroke-linecap="round">
+                    <path class="rain" d="M120 200 L104 264"/><path class="rain" style="animation-delay:.25s" d="M160 200 L144 264"/><path class="rain" style="animation-delay:.5s" d="M200 200 L184 264"/>
+                  </g>
+                  <g>
+                    <rect x="76" y="196" width="150" height="10" rx="5" fill="#394b5f"/>
+                    <rect x="86" y="176" width="34" height="24" rx="5" fill="#4a6076"/>
+                    <rect x="160" y="176" width="34" height="24" rx="5" fill="#4a6076"/>
+                    <rect x="70" y="168" width="162" height="14" rx="7" fill="#22303f"/>
+                    <circle cx="70" cy="175" r="9" fill="#36c26e"/><circle cx="70" cy="175" r="3.5" fill="#06130c"/>
+                  </g>
+                </g>
+                <g class="fx" id="fx-drops" opacity="0">
+                  <path class="drop" d="M320 96 q-9 14 0 24 q9 -10 0 -24" fill="#6cb8f0"/>
+                  <path class="drop" style="animation-delay:.35s" d="M356 88 q-9 14 0 24 q9 -10 0 -24" fill="#6cb8f0"/>
+                  <path class="drop" style="animation-delay:.7s" d="M392 96 q-9 14 0 24 q9 -10 0 -24" fill="#6cb8f0"/>
+                </g>
+                <g class="fx" id="fx-mist" opacity="0">
+                  <circle class="mist" cx="120" cy="265" r="12" fill="#9fd8e8"/>
+                  <circle class="mist" style="animation-delay:.5s" cx="150" cy="272" r="15" fill="#9fd8e8"/>
+                  <circle class="mist" style="animation-delay:1s" cx="180" cy="265" r="11" fill="#9fd8e8"/>
+                </g>
+                <g class="fx" id="fx-fan" opacity="0">
+                  <g>
+                    <rect x="398" y="236" width="14" height="52" rx="5" fill="#4a6076"/>
+                    <rect x="382" y="284" width="46" height="10" rx="5" fill="#394b5f"/>
+                    <circle cx="405" cy="216" r="34" fill="#22303f"/>
+                    <g id="fanRotor2">
+                      <ellipse cx="405" cy="200" rx="10" ry="16" fill="#9fb3c8"/>
+                      <ellipse cx="405" cy="232" rx="10" ry="16" fill="#9fb3c8"/>
+                      <ellipse cx="389" cy="216" rx="16" ry="10" fill="#7d8aa0"/>
+                      <ellipse cx="421" cy="216" rx="16" ry="10" fill="#7d8aa0"/>
+                    </g>
+                    <circle cx="405" cy="216" r="8" fill="#d7e0ea"/>
+                    <circle cx="405" cy="216" r="31" fill="none" stroke="#4a6076" stroke-width="2" stroke-dasharray="4 5"/>
+                    <circle cx="382" cy="240" r="5" fill="#36c26e"/>
+                  </g>
+                  <g id="fanFlow" stroke="#7dd3fc" stroke-width="5" stroke-linecap="round" fill="none">
+                    <path d="M356 200 q-24 4 -40 16"/><path d="M356 216 q-26 2 -44 14"/><path d="M356 232 q-24 0 -40 10"/>
+                  </g>
+                </g>
+                <g class="fx" id="fx-lamp" opacity="0">
+                  <path d="M470 40 v60" stroke="#4a6076" stroke-width="8"/>
+                  <path d="M428 100 h84 l-14 44 h-56z" fill="#394b5f"/>
+                  <rect class="lampbar" x="438" y="148" width="64" height="12" rx="6" fill="#ffd166"/>
+                  <g stroke="#ffe9a8" stroke-width="6" stroke-linecap="round" class="lhatch">
+                    <path d="M444 176 L436 236"/><path d="M462 176 L460 244"/><path d="M480 176 L486 236"/>
+                  </g>
+                </g>
+                <g class="fx" id="fx-breath" opacity="0"><ellipse cx="280" cy="228" rx="40" ry="40" fill="none" stroke="#7dd3fc" stroke-width="3"/></g>
+                <g class="fx" id="fx-pour" opacity="0">
+                  <path d="M210 250 q10 -4 12 -16 l6 -44 20 3 -6 40 q-3 14 -32 17z" fill="#7fb3d5"/>
+                  <path class="pour" d="M210 256 q-2 22 4 40" stroke="#4aa3e8" stroke-width="7" fill="none" stroke-linecap="round"/>
+                  <path class="pour" style="animation-delay:.2s" d="M222 258 q0 20 0 36" stroke="#4aa3e8" stroke-width="6" fill="none" stroke-linecap="round"/>
+                </g>
+                <rect x="196" y="252" width="168" height="66" rx="14" fill="#b07d4f"/>
+                <rect x="196" y="252" width="168" height="18" rx="9" fill="#c08b5a"/>
+                <ellipse cx="280" cy="270" rx="60" ry="10" fill="#7a5230"/>
+                <circle cx="228" cy="297" r="11" fill="#fff8ee" stroke="#e8d9bd" stroke-width="3"/>
+                <circle cx="228" cy="297" r="3.5" fill="#2b2620"/>
+                <circle cx="332" cy="297" r="11" fill="#fff8ee" stroke="#e8d9bd" stroke-width="3"/>
+                <circle cx="332" cy="297" r="3.5" fill="#2b2620"/>
+              </svg>
+            </div>
+          </div>
+          <div class="pp-side">
+            <div class="panel">
+              <div class="panel-title"><svg class="ic"><use href="#i-plug"/></svg><h2>Controls</h2></div>
+              <div class="pp-controls" id="pp-actuators"></div>
+            </div>
+            <div class="panel">
+              <div class="panel-title"><svg class="ic"><use href="#i-sprout"/></svg><h2>This plant</h2></div>
+              <div class="pp-info" id="pp-info"></div>
+            </div>
+          </div>
         </div>
       </section>
 

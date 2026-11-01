@@ -380,6 +380,73 @@ td .rsn{color:var(--muted);font-size:12.5px;max-width:380px;display:block;line-h
   .node-sensors{grid-template-columns:1fr}
   .nd-meta{grid-template-columns:1fr 1fr}
 }
+/* ── PlantPal ── */
+.pp-layout{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:20px;align-items:start}
+.pp-side{display:flex;flex-direction:column;gap:20px;min-width:0}
+.pp-stage-panel{overflow:hidden}
+.stage{position:relative}
+.stage svg{width:100%;height:auto;display:block}
+.pp-bubble{position:absolute;top:4px;left:50%;transform:translateX(-50%);background:var(--panel2);border:1px solid var(--line);color:var(--text);padding:9px 18px;border-radius:16px;font-size:14.5px;font-weight:600;white-space:nowrap;z-index:3;max-width:94%;overflow:hidden;text-overflow:ellipsis}
+.pp-bubble::after{content:"";position:absolute;left:50%;bottom:-7px;transform:translateX(-50%);border:7px solid transparent;border-top-color:var(--line);border-bottom:0}
+.pp-sensors{position:absolute;top:62px;left:0;right:0;display:flex;gap:8px;justify-content:center;z-index:3;flex-wrap:wrap;padding:0 10px}
+.pp-sensor{display:flex;align-items:center;gap:6px;background:var(--inset);border:1px solid var(--line);padding:5px 12px;border-radius:99px;font-size:12px;font-weight:600;color:var(--muted)}
+.pp-sensor .pp-v{font-variant-numeric:tabular-nums;font-weight:700;color:var(--text)}
+.pp-sensor .pp-u{font-weight:500;color:var(--muted);font-size:11px}
+.pp-sensor.ok{border-color:var(--green-line)} .pp-sensor.ok .pp-v{color:var(--green)}
+.pp-sensor.warn{border-color:#5c4a1e} .pp-sensor.warn .pp-v{color:var(--amber)}
+.pp-sensor.bad{border-color:#5c2424} .pp-sensor.bad .pp-v{color:var(--red)}
+.pp-controls{display:flex;flex-direction:column;gap:8px}
+.pp-btn{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:var(--panel2);border:1px solid var(--line);border-radius:var(--r-md);color:var(--text);padding:10px 12px;font-size:13.5px;font-weight:600}
+.pp-btn:hover{filter:brightness(1.12)}
+.pp-btn .pp-ico{width:30px;height:30px;display:inline-flex;align-items:center;justify-content:center;background:var(--inset);border:1px solid var(--line);border-radius:9px;font-size:16px;flex:none}
+.pp-btn .pp-state{margin-left:auto;font-size:11.5px;font-weight:700;color:var(--faint);text-transform:uppercase;letter-spacing:.4px}
+.pp-btn.on{border-color:var(--green-line);background:var(--green-dim)}
+.pp-btn.on .pp-state{color:var(--green)}
+.pp-btn:disabled{opacity:.55;cursor:wait}
+.pp-info{display:flex;flex-direction:column;gap:9px;font-size:13px}
+.pp-info .row{display:flex;justify-content:space-between;gap:10px}
+.pp-info .k{color:var(--muted)} .pp-info .v{font-weight:650;text-align:right}
+.pp-targets{display:flex;flex-wrap:wrap;gap:6px}
+.fx{transition:opacity .5s}
+.fx.show{opacity:1!important}
+#grow0,#grow1,#grow2,#grow3,#grow7{transition:opacity .7s}
+#plantSway{animation:sway 4.5s ease-in-out infinite;transform-origin:280px 252px}
+@keyframes sway{0%,100%{transform:rotate(-2.5deg)}50%{transform:rotate(2.5deg)}}
+#plantDroop{transform-origin:280px 252px;transition:transform 1s}
+#plantDroop.droop{transform:rotate(7deg) translateY(4px)}
+#char{animation:breathe 3.4s ease-in-out infinite;transform-origin:280px 228px}
+@keyframes breathe{0%,100%{transform:scale(1)}50%{transform:scale(1.035)}}
+#char.shiver{animation:shiver .32s linear infinite}
+@keyframes shiver{0%,100%{transform:translate(0,0)}25%{transform:translate(-2.5px,1px)}75%{transform:translate(2.5px,-1px)}}
+#eyesOpen{animation:blink 4.6s linear infinite;transform-origin:280px 224px}
+@keyframes blink{0%,91%,100%{transform:scaleY(1)}94%,97%{transform:scaleY(.08)}}
+#tear{opacity:0}
+#tear.show{animation:dropfall 1.6s ease-in infinite}
+@keyframes dropfall{0%{transform:translateY(0);opacity:0}25%{opacity:1}100%{transform:translateY(26px);opacity:0}}
+#fx-sparkle.show{animation:sparkle 1.6s ease-in-out infinite}
+@keyframes sparkle{0%,100%{opacity:1}50%{opacity:.25}}
+.rain{animation:rainfall .55s linear infinite}
+@keyframes rainfall{from{transform:translateY(-14px);opacity:0}35%{opacity:1}to{transform:translateY(26px);opacity:0}}
+.drop{animation:dropfall 1.4s ease-in infinite}
+#fx-breath.show{animation:breath 2.6s ease-out infinite}
+@keyframes breath{0%{transform:scale(.72);opacity:.9}100%{transform:scale(1.5);opacity:0}}
+.mist{animation:mistdrift 2.4s ease-in-out infinite;opacity:.75}
+@keyframes mistdrift{0%,100%{transform:translate(0,0)}50%{transform:translate(26px,-12px)}}
+#fanRotor2{animation:fanspin .5s linear infinite;transform-origin:405px 216px}
+@keyframes fanspin{to{transform:rotate(360deg)}}
+#fanFlow path{animation:flowdash 1s linear infinite;stroke-dasharray:10 14}
+@keyframes flowdash{to{stroke-dashoffset:-24}}
+.lampbar{animation:lampglow 2.2s ease-in-out infinite}
+@keyframes lampglow{0%,100%{opacity:1}50%{opacity:.55}}
+.lhatch{animation:raypulse 2.2s ease-in-out infinite}
+@keyframes raypulse{0%,100%{opacity:.85}50%{opacity:.35}}
+.pour{animation:pourflow .7s linear infinite}
+@keyframes pourflow{from{stroke-dasharray:6 30;stroke-dashoffset:36}to{stroke-dasharray:6 30;stroke-dashoffset:0}}
+@media (max-width:960px){
+  .pp-layout{grid-template-columns:1fr}
+  .pp-bubble{font-size:13px;padding:8px 14px}
+  .pp-sensors{top:58px}
+}
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}
 }

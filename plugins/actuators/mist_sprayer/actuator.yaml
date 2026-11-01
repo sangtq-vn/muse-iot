@@ -1,0 +1,37 @@
+id: mist_sprayer
+name: Mist Sprayer (Relay)
+version: 1.0.0
+author: muse-iot-core
+description: >
+  Solenoid-valve mister for humidity boosts and foliar cooling.
+  Controlled via relay module, like the water pump.
+
+commands:
+  - key: mist_sprayer
+    name: Mister on/off
+    type: on_off
+    mqtt: actuator/mist_sprayer/set
+    values: ["on", "off"]
+  - key: mist_duration_sec
+    name: Auto-off duration
+    type: integer
+    range: [0, 120]
+    unit: seconds
+    description: If > 0, mister auto-turns off after this many seconds
+
+safety:
+  interlock:
+    sensor: dht11_humidity
+    condition: "< 90"
+    message: "Mister blocked — humidity already above 90%"
+  max_duration_sec: 60
+  cooldown_sec: 300   # minimum seconds between mist activations
+
+hardware:
+  gpio_type: relay
+  voltage: [5, 12]
+  typical_gpio: GPIO27
+
+compatible_devices:
+  - esp32_mqtt
+  - rpi_gpio

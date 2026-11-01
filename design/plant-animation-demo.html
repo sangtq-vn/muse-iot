@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<!--
+  PlantPal — Animation feature demo (REVIEW ONLY).
+  Standalone file with simulated data. Open directly in a browser.
+  Spec demo for the muse-iot "animation" feature: a face character that
+  shows plant mood (hot / cold / thirsty / happy) and growth stages,
+  with direct actuator controls.
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PlantPal — Animation Demo</title>
+<style>
+:root{
+  --bg:#0b0f0c; --panel:#111613; --panel2:#182019; --inset:#0d120e;
+  --line:#233026; --line-soft:#1a221c;
+  --text:#e9eeea; --muted:#9aa79c; --faint:#68736a;
+  --green:#46d18c; --green-dim:#152b1f; --green-line:#2f5c42;
+  --blue:#5aa9ff; --blue-dim:#152a42;
+  --amber:#e8a33d; --amber-dim:#33270f;
+  --red:#ef6f6f; --red-dim:#3a1a1a;
+  --font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,monospace;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:14px;line-height:1.55;min-height:100vh}
+button{font-family:inherit;cursor:pointer}
+:focus-visible{outline:2px solid var(--green);outline-offset:2px;border-radius:4px}
+.num{font-variant-numeric:tabular-nums}
+.wrap{max-width:1080px;margin:0 auto;padding:26px 24px 60px;display:flex;flex-direction:column;gap:18px}
+
+/* Header */
+.top{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.top h1{font-size:19px;font-weight:750;letter-spacing:-0.01em}
+.top h1 span{color:var(--green)}
+.top-right{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:650;
+  padding:4px 12px;border-radius:99px;background:var(--panel2);border:1px solid var(--line)}
+.chip.green{background:var(--green-dim);border-color:var(--green-line);color:var(--green)}
+.chip.amber{background:var(--amber-dim);border-color:#5c4a1e;color:var(--amber)}
+.chip.red{background:var(--red-dim);border-color:#5f2b2b;color:var(--red)}
+.chip.blue{background:var(--blue-dim);border-color:#274a71;color:var(--blue)}
+.chip.ghost{color:var(--faint);border-style:dashed;font-weight:500}
+
+/* Layout */
+.cols{display:grid;grid-template-columns:1.15fr .85fr;gap:16px;align-items:start}
+.panel{background:var(--panel);border:1px solid var(--line-soft);border-radius:14px;padding:20px 22px}
+.panel h2{font-size:14px;font-weight:650;margin-bottom:12px}
+.panel h2 .sub{font-weight:400;color:var(--faint);font-size:12px;margin-left:6px}
+
+/* Stage */
+.stage{position:relative;background:var(--inset);border:1px solid var(--line-soft);
+  border-radius:12px;padding:10px 10px 0;overflow:hidden}
+#char{width:100%;height:auto;display:block;max-height:380px}
+.bubble{position:absolute;top:12px;left:12px;right:12px;background:var(--panel2);
+  border:1px solid var(--line);border-radius:12px;padding:9px 14px;font-size:13px;
+  line-height:1.5;min-height:42px}
+.bubble::after{content:"";position:absolute;left:52px;bottom:-7px;width:12px;height:12px;
+  background:var(--panel2);border-right:1px solid var(--line);border-bottom:1px solid var(--line);
+  transform:rotate(45deg)}
+.bubble b{color:var(--green)}
+.sensors{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.sensor{flex:1;min-width:100px;background:var(--inset);border:1px solid var(--line-soft);
+  border-radius:9px;padding:8px 12px}
+.sensor .k{font-size:11px;color:var(--muted);font-weight:600}
+.sensor .v{font-size:18px;font-weight:750}
+.sensor .v small{font-size:11px;font-weight:500;color:var(--muted)}
+.sensor.ok .v{color:var(--green)} .sensor.warn .v{color:var(--amber)} .sensor.bad .v{color:var(--red)}
+
+/* Character animation */
+#plantSway{transform-box:fill-box;transform-origin:50% 100%;animation:sway 5s ease-in-out infinite}
+@keyframes sway{0%,100%{transform:rotate(-2deg)}50%{transform:rotate(2deg)}}
+#char[data-mood="thirsty"] #plantDroop{transform:rotate(9deg)}
+#plantDroop{transform-box:fill-box;transform-origin:50% 100%;transition:transform .8s}
+#char[data-mood="cold"] #character{animation:shiver .28s linear infinite}
+@keyframes shiver{0%,100%{transform:translateX(0)}25%{transform:translateX(-2px)}75%{transform:translateX(2px)}}
+.eyes{transform-box:fill-box;transform-origin:center;animation:blink 5.2s infinite}
+@keyframes blink{0%,93%,100%{transform:scaleY(1)}96%{transform:scaleY(.08)}}
+.fx{opacity:0;transition:opacity .4s}
+#char[data-mood="hot"] .fx-heat{opacity:1}
+#char[data-mood="hot"] .fx-sweat{opacity:1}
+#char[data-mood="thirsty"] .fx-tear{opacity:1}
+#char[data-mood="thirsty"] .fx-crack{opacity:1}
+#char[data-mood="cold"] .fx-cold{opacity:1}
+#char[data-mood="happy"] .fx-blush{opacity:1}
+.heat{animation:rise 2.2s ease-in infinite}
+.heat:nth-child(2){animation-delay:.5s}.heat:nth-child(3){animation-delay:1.1s}
+@keyframes rise{0%{transform:translateY(8px);opacity:0}30%{opacity:.9}100%{transform:translateY(-26px);opacity:0}}
+.drop-fall{animation:dropfall 1.8s ease-in infinite}
+.drop-fall.d2{animation-delay:.6s}
+@keyframes dropfall{0%{transform:translateY(-4px);opacity:0}25%{opacity:1}100%{transform:translateY(26px);opacity:0}}
+.tear-fall{animation:dropfall 2.6s ease-in infinite}
+.breath{transform-box:fill-box;transform-origin:center;animation:breath 2.4s ease-out infinite}
+@keyframes breath{0%{transform:scale(.4);opacity:0}30%{opacity:.7}100%{transform:scale(1.6);opacity:0}}
+.mist-p{animation:mistdrift 3s ease-in-out infinite}
+.mist-p:nth-child(2){animation-delay:.7s}.mist-p:nth-child(3){animation-delay:1.3s}
+.mist-p:nth-child(4){animation-delay:1.9s}
+@keyframes mistdrift{0%,100%{transform:translate(0,0);opacity:.15}50%{transform:translate(14px,-10px);opacity:.7}}
+.water-p{animation:waterfall .9s linear infinite}
+.water-p:nth-child(2){animation-delay:.2s}.water-p:nth-child(3){animation-delay:.45s}
+.water-p:nth-child(4){animation-delay:.65s}
+@keyframes waterfall{0%{transform:translateY(-30px);opacity:0}20%{opacity:1}100%{transform:translateY(46px);opacity:0}}
+.fan-r{animation:fanslideR 1.1s linear infinite}
+.fan-r:nth-child(2){animation-delay:.35s}.fan-r:nth-child(3){animation-delay:.7s}
+@keyframes fanslideR{0%{transform:translateX(-10px);opacity:0}30%{opacity:.9}100%{transform:translateX(24px);opacity:0}}
+.ray{transform-box:fill-box;transform-origin:center;animation:raypulse 2s ease-in-out infinite}
+.ray:nth-child(2){animation-delay:.4s}.ray:nth-child(3){animation-delay:.8s}
+@keyframes raypulse{0%,100%{opacity:.35}50%{opacity:1}}
+.show{opacity:1 !important}
+#charBounce{animation:bounce 2.6s ease-in-out infinite}
+@keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
+#char[data-mood="happy"] .fx-sparkle{opacity:1}
+.sparkle{transform-box:fill-box;transform-origin:center;animation:twinkle 1.6s ease-in-out infinite}
+.sparkle:nth-child(2){animation-delay:.5s}.sparkle:nth-child(3){animation-delay:1s}
+@keyframes twinkle{0%,100%{transform:scale(.5);opacity:.3}50%{transform:scale(1.15);opacity:1}}
+.fan-spin{transform-box:fill-box;transform-origin:center;animation:fanspin .9s linear infinite}
+@keyframes fanspin{to{transform:rotate(360deg)}}
+.pour{stroke-dasharray:5 7;animation:pourflow .45s linear infinite}
+@keyframes pourflow{to{stroke-dashoffset:-12}}
+.lamp-glow{animation:glowpulse 2s ease-in-out infinite}
+@keyframes glowpulse{0%,100%{opacity:.3}50%{opacity:.55}}
+
+/* Controls */
+.ctl-group{margin-bottom:18px}
+.ctl-group:last-child{margin-bottom:2px}
+.ctl-group>h3{font-size:12.5px;font-weight:650;margin-bottom:9px}
+.ctl-group>h3 .hint{font-weight:400;color:var(--faint);font-size:11.5px}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;gap:7px;border-radius:9px;font-size:12.5px;
+  font-weight:650;padding:8px 14px;border:1px solid var(--line);background:var(--panel2);
+  color:var(--text);transition:filter .12s,border-color .12s,background .12s}
+.btn:hover{filter:brightness(1.12)}
+.btn.active{background:var(--green-dim);border-color:var(--green-line);color:var(--green)}
+.btn.blue.active{background:var(--blue-dim);border-color:#274a71;color:var(--blue)}
+.btn.amber.active{background:var(--amber-dim);border-color:#5c4a1e;color:var(--amber)}
+.btn svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+input[type="range"]{width:100%;accent-color:var(--green);margin:2px 0 4px}
+.slider-row{display:grid;grid-template-columns:86px 1fr 64px;gap:10px;align-items:center;
+  font-size:12.5px;margin-bottom:6px}
+.slider-row .sv{text-align:right;font-family:var(--mono);font-weight:700}
+.growth-labels{display:flex;justify-content:space-between;font-size:10.5px;color:var(--faint);margin-top:2px}
+.toggle-row{display:flex;align-items:center;gap:9px;font-size:12.5px;color:var(--muted);margin-top:8px}
+.toggle-row input{width:16px;height:16px;accent-color:var(--green)}
+.log{background:var(--inset);border:1px solid var(--line-soft);border-radius:9px;
+  padding:10px 13px;font-size:12px;max-height:118px;overflow-y:auto;
+  display:flex;flex-direction:column;gap:3px}
+.log div{color:var(--muted)}
+.log div b{color:var(--text);font-weight:600}
+.log .t{color:var(--faint);font-family:var(--mono);font-size:11px;margin-right:7px}
+.foot{text-align:center;font-size:12px;color:var(--faint)}
+.foot b{color:var(--muted)}
+
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-thumb{background:#2a352d;border-radius:4px}
+
+@media (max-width:860px){.cols{grid-template-columns:1fr}.wrap{padding:18px 14px 40px}}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation:none !important;transition:none !important}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <h1>PlantPal <span>— animation demo</span></h1>
+    <div class="top-right">
+      <span class="chip green" id="moodBadge">Happy</span>
+      <span class="chip" id="growthBadge">Vegetative</span>
+      <span class="chip ghost">demo</span>
+    </div>
+  </div>
+
+  <div class="cols">
+    <div class="panel">
+      <h2>Your plant <span class="sub">live character — reacts to conditions</span></h2>
+      <div class="stage">
+        <div class="bubble" id="bubble">Feeling great! Leaves up, roots down.</div>
+        <svg id="char" data-mood="happy" data-stage="2" viewBox="0 0 320 360" role="img" aria-label="Animated plant character">
+          <defs>
+            <linearGradient id="potGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#2a3430"/><stop offset="1" stop-color="#1b2220"/>
+            </linearGradient>
+            <linearGradient id="leafGrad" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#5fd795"/><stop offset="1" stop-color="#2f9e63"/>
+            </linearGradient>
+            <linearGradient id="leafDry" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#b8a25c"/><stop offset="1" stop-color="#7d6f36"/>
+            </linearGradient>
+          </defs>
+
+          <ellipse cx="160" cy="334" rx="72" ry="10" fill="#000" opacity=".35"/>
+
+          <g id="charBounce"><g id="character">
+            <!-- plant stages -->
+            <g id="plantSway"><g id="plantDroop">
+              <g class="pstage" id="plant0" style="display:none">
+                <path d="M160,238 C160,224 158,216 155,206" stroke="#3fae72" stroke-width="6" fill="none" stroke-linecap="round"/>
+                <ellipse cx="138" cy="208" rx="20" ry="9" transform="rotate(-28 138 208)" fill="url(#leafGrad)"/>
+                <ellipse cx="180" cy="202" rx="22" ry="9" transform="rotate(24 180 202)" fill="url(#leafGrad)"/>
+              </g>
+              <g class="pstage" id="plant1" style="display:none">
+                <path d="M160,238 C160,214 159,196 160,178" stroke="#3fae72" stroke-width="7" fill="none" stroke-linecap="round"/>
+                <ellipse cx="132" cy="206" rx="26" ry="11" transform="rotate(-30 132 206)" fill="url(#leafGrad)"/>
+                <ellipse cx="188" cy="200" rx="26" ry="11" transform="rotate(28 188 200)" fill="url(#leafGrad)"/>
+                <ellipse cx="140" cy="178" rx="22" ry="10" transform="rotate(-18 140 178)" fill="url(#leafGrad)"/>
+                <ellipse cx="182" cy="172" rx="22" ry="10" transform="rotate(20 182 172)" fill="url(#leafGrad)"/>
+              </g>
+              <g class="pstage" id="plant2">
+                <path d="M160,238 C160,208 159,184 160,158" stroke="#3fae72" stroke-width="8" fill="none" stroke-linecap="round"/>
+                <ellipse cx="126" cy="212" rx="32" ry="13" transform="rotate(-32 126 212)" fill="url(#leafGrad)"/>
+                <ellipse cx="194" cy="206" rx="32" ry="13" transform="rotate(30 194 206)" fill="url(#leafGrad)"/>
+                <ellipse cx="130" cy="180" rx="28" ry="12" transform="rotate(-20 130 180)" fill="url(#leafGrad)"/>
+                <ellipse cx="190" cy="174" rx="28" ry="12" transform="rotate(22 190 174)" fill="url(#leafGrad)"/>
+                <ellipse cx="142" cy="150" rx="24" ry="11" transform="rotate(-14 142 150)" fill="url(#leafGrad)"/>
+                <ellipse cx="180" cy="144" rx="24" ry="11" transform="rotate(16 180 144)" fill="url(#leafGrad)"/>
+                <circle cx="152" cy="126" r="4.5" fill="#7dd87d"/>
+                <circle cx="170" cy="122" r="4.5" fill="#7dd87d"/>
+              </g>
+              <g class="pstage" id="plant3" style="display:none">
+                <path d="M160,238 C160,204 159,176 160,146" stroke="#379e66" stroke-width="9" fill="none" stroke-linecap="round"/>
+                <ellipse cx="122" cy="208" rx="36" ry="14" transform="rotate(-32 122 208)" fill="url(#leafGrad)"/>
+                <ellipse cx="198" cy="202" rx="36" ry="14" transform="rotate(30 198 202)" fill="url(#leafGrad)"/>
+                <ellipse cx="126" cy="174" rx="32" ry="13" transform="rotate(-20 126 174)" fill="url(#leafGrad)"/>
+                <ellipse cx="194" cy="168" rx="32" ry="13" transform="rotate(22 194 168)" fill="url(#leafGrad)"/>
+                <ellipse cx="140" cy="142" rx="28" ry="12" transform="rotate(-14 140 142)" fill="url(#leafGrad)"/>
+                <ellipse cx="182" cy="136" rx="28" ry="12" transform="rotate(16 182 136)" fill="url(#leafGrad)"/>
+                <g>
+                  <circle cx="112" cy="150" r="10" fill="#ef6f6f"/>
+                  <circle cx="108.5" cy="146.5" r="2.6" fill="#fff" opacity=".9"/>
+                  <path d="M112,140 l-6,-6 M112,140 l6,-6 M112,140 v-8" stroke="#2f9e63" stroke-width="2.5" stroke-linecap="round"/>
+                </g>
+                <g>
+                  <circle cx="208" cy="142" r="10" fill="#ef6f6f"/>
+                  <circle cx="204.5" cy="138.5" r="2.6" fill="#fff" opacity=".9"/>
+                  <path d="M208,132 l-6,-6 M208,132 l6,-6 M208,132 v-8" stroke="#2f9e63" stroke-width="2.5" stroke-linecap="round"/>
+                </g>
+                <g>
+                  <circle cx="160" cy="116" r="10" fill="#e8853d"/>
+                  <circle cx="156.5" cy="112.5" r="2.6" fill="#fff" opacity=".9"/>
+                  <path d="M160,106 l-6,-6 M160,106 l6,-6 M160,106 v-8" stroke="#2f9e63" stroke-width="2.5" stroke-linecap="round"/>
+                </g>
+                <g>
+                  <circle cx="94" cy="190" r="8" fill="#ef6f6f"/>
+                  <circle cx="91.5" cy="187.5" r="2" fill="#fff" opacity=".9"/>
+                  <path d="M94,182 l-5,-5 M94,182 l5,-5" stroke="#2f9e63" stroke-width="2.5" stroke-linecap="round"/>
+                </g>
+                <g>
+                  <circle cx="228" cy="182" r="8" fill="#e8853d"/>
+                  <circle cx="225.5" cy="179.5" r="2" fill="#fff" opacity=".9"/>
+                  <path d="M228,174 l-5,-5 M228,174 l5,-5" stroke="#2f9e63" stroke-width="2.5" stroke-linecap="round"/>
+                </g>
+              </g>
+            </g></g>
+
+            <!-- pot -->
+            <path d="M110,244 L210,244 L198,318 Q197,328 187,328 L133,328 Q123,328 122,318 Z" fill="url(#potGrad)" stroke="#233026" stroke-width="2"/>
+            <rect x="102" y="228" width="116" height="20" rx="7" fill="#222b26" stroke="#2f3b33" stroke-width="1.5"/>
+            <ellipse cx="160" cy="244" rx="44" ry="9" fill="#4a3826" id="soilTop"/>
+            <g class="fx fx-crack" stroke="#2c2114" stroke-width="2" stroke-linecap="round">
+              <path d="M140,242 l10,4 M162,245 l11,-3 M150,247 l8,-5"/>
+            </g>
+
+            <!-- face (PlantBot style: face on the pot) -->
+            <g id="face">
+              <g class="eyes" id="eyesNormal">
+                <circle cx="138" cy="276" r="8.5" fill="#e9eeea"/><circle cx="140" cy="278" r="4.2" fill="#0b0f0c"/><circle cx="141.5" cy="276.5" r="1.4" fill="#fff"/>
+                <circle cx="182" cy="276" r="8.5" fill="#e9eeea"/><circle cx="184" cy="278" r="4.2" fill="#0b0f0c"/><circle cx="185.5" cy="276.5" r="1.4" fill="#fff"/>
+              </g>
+              <g class="eyes" id="eyesHappy" style="display:none" stroke="#e9eeea" stroke-width="3.5" fill="none" stroke-linecap="round">
+                <path d="M129,279 Q138,268 147,279"/><path d="M173,279 Q182,268 191,279"/>
+              </g>
+              <g class="eyes" id="eyesWorried" style="display:none">
+                <circle cx="138" cy="278" r="5" fill="#e9eeea"/><circle cx="139.5" cy="276.5" r="1.4" fill="#0b0f0c"/><circle cx="182" cy="278" r="5" fill="#e9eeea"/><circle cx="183.5" cy="276.5" r="1.4" fill="#0b0f0c"/>
+                <g stroke="#e9eeea" stroke-width="2.5" stroke-linecap="round">
+                  <path d="M129,266 L145,270"/><path d="M191,266 L175,270"/>
+                </g>
+              </g>
+              <g class="eyes" id="eyesDizzy" style="display:none" stroke="#e9eeea" stroke-width="2.5" stroke-linecap="round">
+                <path d="M133,272 L143,282 M143,272 L133,282"/>
+                <path d="M177,272 L187,282 M187,272 L177,282"/>
+              </g>
+              <g id="mouthSmile" style="display:none">
+                <path d="M145,293 Q160,305 175,293" stroke="#e9eeea" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+              </g>
+              <g id="mouthFrown" style="display:none">
+                <path d="M145,299 Q160,290 175,299" stroke="#e9eeea" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+              </g>
+              <g id="mouthWavy" style="display:none">
+                <path d="M145,295 q6,-5 12,0 t12,0 q3,0 6,0" stroke="#e9eeea" stroke-width="3" fill="none" stroke-linecap="round"/>
+              </g>
+              <ellipse id="mouthOpen" cx="160" cy="296" rx="7" ry="9" fill="#0b0f0c" stroke="#e9eeea" stroke-width="2.5" style="display:none"/>
+              <g class="fx fx-blush" fill="#ef6f6f" opacity=".7">
+                <ellipse cx="124" cy="288" rx="9" ry="5.5"/><ellipse cx="196" cy="288" rx="9" ry="5.5"/>
+              </g>
+            </g>
+
+            <!-- mood effects -->
+            <g class="fx fx-heat" stroke="#e8a33d" stroke-width="3" fill="none" stroke-linecap="round">
+              <path class="heat" d="M96,220 q-6,-14 0,-26 q6,-12 0,-26"/>
+              <path class="heat" d="M224,220 q-6,-14 0,-26 q6,-12 0,-26"/>
+              <path class="heat" d="M160,120 q-6,-14 0,-26 q6,-12 0,-26"/>
+            </g>
+            <g class="fx fx-sweat" fill="#5aa9ff">
+              <path class="drop-fall" d="M104,250 c-6,9 -6,15 0,20 c6,-5 6,-11 0,-20z"/>
+              <path class="drop-fall d2" d="M216,250 c-6,9 -6,15 0,20 c6,-5 6,-11 0,-20z"/>
+            </g>
+            <g class="fx fx-tear" fill="#5aa9ff">
+              <path class="tear-fall" d="M193,282 c-8,12 -8,20 0,27 c8,-7 8,-15 0,-27z"/>
+            </g>
+            <g class="fx fx-cold">
+              <rect x="60" y="60" width="200" height="280" rx="24" fill="#5aa9ff" opacity=".10"/>
+              <circle class="breath" cx="188" cy="300" r="9" fill="#cfe6ff" opacity="0"/>
+            </g>
+
+            <!-- actuator effects -->
+            <g class="fx" id="fxWater">
+              <path d="M56,50 h38 a7,7 0 0 1 7,7 v12 a7,7 0 0 1 -7,7 h-38 a7,7 0 0 1 -7,-7 v-12 a7,7 0 0 1 7,-7z" fill="#3f6f9e" stroke="#274a71" stroke-width="2"/>
+              <path d="M94,58 L122,92" stroke="#3f6f9e" stroke-width="7" stroke-linecap="round"/>
+              <ellipse cx="124" cy="94" rx="7" ry="5" fill="#274a71" transform="rotate(35 124 94)"/>
+              <path d="M56,54 C42,54 42,72 56,72" fill="none" stroke="#3f6f9e" stroke-width="4" stroke-linecap="round"/>
+              <g stroke="#5aa9ff" stroke-width="3" stroke-linecap="round">
+                <line class="water-p" x1="120" y1="60" x2="116" y2="76"/>
+                <line class="water-p" x1="145" y1="52" x2="141" y2="68"/>
+                <line class="water-p" x1="172" y1="58" x2="168" y2="74"/>
+                <line class="water-p" x1="198" y1="50" x2="194" y2="66"/>
+                <line class="pour" x1="124" y1="100" x2="120" y2="152"/>
+                <line class="pour" x1="136" y1="100" x2="132" y2="152" style="animation-delay:.2s"/>
+              </g>
+            </g>
+            <g class="fx" id="fxFan">
+              <ellipse cx="46" cy="322" rx="16" ry="5" fill="#222b26"/>
+              <rect x="43" y="284" width="7" height="38" rx="3" fill="#2f3b33"/>
+              <circle cx="46" cy="266" r="24" fill="#182019" stroke="#2f3b33" stroke-width="3"/>
+              <g class="fan-spin" fill="#9aa79c">
+                <ellipse cx="46" cy="255" rx="5.5" ry="10"/>
+                <ellipse cx="46" cy="255" rx="5.5" ry="10" transform="rotate(120 46 266)"/>
+                <ellipse cx="46" cy="255" rx="5.5" ry="10" transform="rotate(240 46 266)"/>
+                <circle cx="46" cy="266" r="4" fill="#e9eeea"/>
+              </g>
+              <circle cx="46" cy="266" r="24" fill="none" stroke="#3a453d" stroke-width="1.5" stroke-dasharray="4 5"/>
+              <g stroke="#9aa79c" stroke-width="2.5" fill="none" stroke-linecap="round">
+                <path class="fan-r" d="M76,252 q14,-6 26,0"/>
+                <path class="fan-r" d="M76,268 q14,-6 26,0"/>
+                <path class="fan-r" d="M76,284 q14,-6 26,0"/>
+              </g>
+            </g>
+            <g class="fx" id="fxLight">
+              <line x1="258" y1="0" x2="258" y2="40" stroke="#3a453d" stroke-width="3"/>
+              <path d="M236,40 L280,40 L270,66 L246,66 Z" fill="#8a6d2f" stroke="#e8c33d" stroke-width="2" stroke-linejoin="round"/>
+              <circle cx="258" cy="73" r="8" fill="#ffe9a8"/>
+              <polygon class="lamp-glow" points="248,70 268,70 302,210 214,210" fill="#e8c33d" opacity=".4"/>
+              <g stroke="#e8c33d" stroke-width="3" stroke-linecap="round">
+                <line class="ray" x1="258" y1="86" x2="258" y2="94"/>
+                <line class="ray" x1="240" y1="80" x2="234" y2="86"/>
+                <line class="ray" x1="276" y1="80" x2="282" y2="86"/>
+              </g>
+            </g>
+            <g class="fx" id="fxMist" fill="#cfe6ff">
+              <path d="M268,330 C266,312 262,300 256,292" fill="none" stroke="#3a453d" stroke-width="5" stroke-linecap="round"/>
+              <rect x="244" y="278" width="24" height="14" rx="6" fill="#2f3b33" stroke="#4a5550" stroke-width="1.5" transform="rotate(-18 256 285)"/>
+              <polygon points="246,282 200,240 210,290" fill="#cfe6ff" opacity=".14"/>
+              <circle class="mist-p" cx="100" cy="200" r="7"/>
+              <circle class="mist-p" cx="220" cy="210" r="9"/>
+              <circle class="mist-p" cx="130" cy="160" r="6"/>
+              <circle class="mist-p" cx="195" cy="150" r="7"/>
+            </g>
+            <g class="fx fx-sparkle" fill="#ffe9a8">
+              <path class="sparkle" d="M88,120 l2.5,6 6,2.5 -6,2.5 -2.5,6 -2.5,-6 -6,-2.5 6,-2.5z"/>
+              <path class="sparkle" d="M232,120 l2,5 5,2 -5,2 -2,5 -2,-5 -5,-2 5,-2z"/>
+              <path class="sparkle" d="M160,60 l2.5,6 6,2.5 -6,2.5 -2.5,6 -2.5,-6 -6,-2.5 6,-2.5z"/>
+            </g>
+          </g>
+          </g>
+        </svg>
+      </div>
+      <div class="sensors" id="sensorChips"></div>
+    </div>
+    <div class="panel">
+      <h2>Director controls <span class="sub">drive the scene</span></h2>
+
+      <div class="ctl-group">
+        <h3>Scenario <span class="hint">— one-click moods</span></h3>
+        <div class="btn-row" id="scenarios">
+          <button class="btn amber" data-sc="heat">Heatwave</button>
+          <button class="btn blue" data-sc="cold">Cold snap</button>
+          <button class="btn amber" data-sc="dry">Dry soil</button>
+          <button class="btn" data-sc="perfect">Perfect day</button>
+          <button class="btn" id="tourBtn">Play tour</button>
+        </div>
+      </div>
+
+      <div class="ctl-group">
+        <h3>Growth <span class="hint">— seeding to harvest</span></h3>
+        <input type="range" id="growth" min="0" max="3" step="1" value="2" aria-label="Growth stage">
+        <div class="growth-labels"><span>Seeding</span><span>Seedling</span><span>Vegetative</span><span>Harvest</span></div>
+        <label class="toggle-row"><input type="checkbox" id="autoGrow"> Auto-grow (advance every 6s)</label>
+      </div>
+
+      <div class="ctl-group">
+        <h3>Actuators <span class="hint">— direct control, like the real app</span></h3>
+        <div class="btn-row">
+          <button class="btn blue" id="btnWater"><svg viewBox="0 0 24 24"><path d="M12 3s6 6.3 6 11a6 6 0 0 1-12 0c0-4.7 6-11 6-11z"/></svg>Water</button>
+          <button class="btn" id="btnFan"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="1.6"/><path d="M12 10.4C10 7 10 3.5 12 2c2 1.5 2 5 0 8.4zM13.4 12c3.4-2 6.9-2 8.5 0-1.6 2-5.1 2-8.5 0zM12 13.6c2 3.4 2 6.9 0 8.5-2-1.6-2-5.1 0-8.5zM10.6 12C7.2 14 3.7 14 2 12c1.7-2 5.2-2 8.6 0z"/></svg>Fan</button>
+          <button class="btn amber" id="btnLight"><svg viewBox="0 0 24 24"><path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 1 3.5 10.9c-.8.6-1.5 1.4-1.5 2.6H10c0-1.2-.7-2-1.5-2.6A6 6 0 0 1 12 3z"/></svg>Light</button>
+          <button class="btn blue" id="btnMist"><svg viewBox="0 0 24 24"><circle cx="7" cy="9" r="2.2"/><circle cx="12" cy="6" r="2.6"/><circle cx="17" cy="9" r="2.2"/><path d="M4 16h16M7 20h10"/></svg>Mist spray</button>
+        </div>
+      </div>
+
+      <div class="ctl-group">
+        <h3>Environment <span class="hint">— drag to force a mood</span></h3>
+        <div class="slider-row"><span>Temp °C</span><input type="range" id="slTemp" min="10" max="38" step="0.5" value="29.4"><span class="sv num" id="svTemp">29.4</span></div>
+        <div class="slider-row"><span>Humidity %</span><input type="range" id="slHum" min="15" max="95" step="1" value="62"><span class="sv num" id="svHum">62</span></div>
+        <div class="slider-row"><span>Soil %</span><input type="range" id="slSoil" min="10" max="95" step="1" value="52"><span class="sv num" id="svSoil">52</span></div>
+      </div>
+
+      <div class="ctl-group">
+        <h3>Director log</h3>
+        <div class="log" id="log"></div>
+      </div>
+    </div>
+  </div>
+  <div class="foot">Standalone demo · simulated data · spec for the muse-iot <b>animation</b> feature — not wired to the app</div>
+</div>
+
+<script>
+/* ── Simulated plant model ─────────────────────────────── */
+const T = { temp: [20, 28], hum: [55, 75], soil: [55, 70] };
+const S = { temp: 29.4, hum: 62, soil: 52, light: 70, fanOn: false, lightOn: false, stage: 2 };
+const STAGES = ['Seeding', 'Seedling', 'Vegetative', 'Harvest'];
+const $ = s => document.querySelector(s);
+
+const FACES = {
+  happy:   { eyes: 'eyesHappy',   mouth: 'mouthSmile' },
+  thirsty: { eyes: 'eyesWorried', mouth: 'mouthWavy' },
+  hot:     { eyes: 'eyesDizzy',   mouth: 'mouthOpen' },
+  cold:    { eyes: 'eyesWorried', mouth: 'mouthWavy' },
+};
+const LINES = {
+  happy:   'Feeling great! Leaves up, roots down.',
+  thirsty: "I'm parched… some <b>water</b> please?",
+  hot:     'Too hot in here! Can I get some <b>air</b>?',
+  cold:    'Brrr… chilly roots over here.',
+};
+const MOOD_LABEL = { happy: 'Happy', thirsty: 'Needs water', hot: 'Too hot', cold: 'Too cold' };
+const MOOD_CHIP = { happy: 'green', thirsty: 'amber', hot: 'red', cold: 'blue' };
+
+function mood() {
+  if (S.soil < T.soil[0]) return 'thirsty';
+  if (S.temp > T.temp[1]) return 'hot';
+  if (S.temp < T.temp[0]) return 'cold';
+  return 'happy';
+}
+
+function band(v, r) { return v < r[0] || v > r[1] ? (Math.abs(v - (r[0] + r[1]) / 2) > (r[1] - r[0]) / 2 + 3 ? 'bad' : 'warn') : 'ok'; }
+
+function render() {
+  const m = mood();
+  const char = $('#char');
+  char.dataset.mood = m;
+  // face
+  ['eyesNormal', 'eyesHappy', 'eyesWorried', 'eyesDizzy'].forEach(id =>
+    document.getElementById(id).style.display = id === FACES[m].eyes ? '' : 'none');
+  ['mouthSmile', 'mouthFrown', 'mouthWavy', 'mouthOpen'].forEach(id =>
+    document.getElementById(id).style.display = id === FACES[m].mouth ? '' : 'none');
+  // badges + bubble
+  const badge = $('#moodBadge');
+  badge.textContent = MOOD_LABEL[m];
+  badge.className = 'chip ' + MOOD_CHIP[m];
+  if (!bubbleLock) $('#bubble').innerHTML = LINES[m];
+  // sensors
+  const rows = [
+    ['Temp', S.temp.toFixed(1), '°C', band(S.temp, T.temp)],
+    ['Humidity', S.hum.toFixed(0), '%', band(S.hum, T.hum)],
+    ['Soil', S.soil.toFixed(0), '%', band(S.soil, T.soil)],
+  ];
+  $('#sensorChips').innerHTML = rows.map(([k, v, u, c]) =>
+    `<div class="sensor ${c}"><div class="k">${k}</div><div class="v num">${v} <small>${u}</small></div></div>`).join('');
+  // sliders echo (unless being dragged)
+  if (document.activeElement !== $('#slTemp')) $('#slTemp').value = S.temp;
+  if (document.activeElement !== $('#slHum')) $('#slHum').value = S.hum;
+  if (document.activeElement !== $('#slSoil')) $('#slSoil').value = S.soil;
+  $('#svTemp').textContent = S.temp.toFixed(1);
+  $('#svHum').textContent = S.hum.toFixed(0);
+  $('#svSoil').textContent = S.soil.toFixed(0);
+}
+
+function say(html, holdMs = 0) {
+  $('#bubble').innerHTML = html;
+  if (holdMs > 0) {
+    bubbleLock = true;
+    clearTimeout(say._t);
+    say._t = setTimeout(() => { bubbleLock = false; render(); }, holdMs);
+  }
+}
+let bubbleLock = false;
+
+function log(msg) {
+  const el = $('#log');
+  const t = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  el.insertAdjacentHTML('afterbegin', `<div><span class="t">${t}</span>${msg}</div>`);
+  while (el.children.length > 30) el.lastChild.remove();
+}
+/* ── Growth stages ───────────────────────────────── */
+function setStage(n, silent) {
+  S.stage = Math.max(0, Math.min(3, n));
+  document.querySelectorAll('.pstage').forEach((g, i) => {
+    g.style.display = i === S.stage ? '' : 'none';
+  });
+  $('#char').dataset.stage = S.stage;
+  $('#growth').value = S.stage;
+  $('#growthBadge').textContent = STAGES[S.stage] + (S.stage === 3 ? ' ready!' : '');
+  if (!silent) {
+    log(`Grew to <b>${STAGES[S.stage]}</b>`);
+    say(S.stage === 3 ? 'Look at me — <b>harvest time!</b> My fruits are ripe and yummy!' : `I grew! Now in <b>${STAGES[S.stage]}</b> stage.`, 3500);
+  }
+}
+$('#growth').addEventListener('input', e => setStage(+e.target.value));
+let growTimer = null;
+$('#autoGrow').addEventListener('change', e => {
+  clearInterval(growTimer); growTimer = null;
+  if (e.target.checked) {
+    growTimer = setInterval(() => setStage((S.stage + 1) % 4), 6000);
+    log('Auto-grow <b>on</b>');
+  } else log('Auto-grow off');
+});
+
+/* ── Actuators ─────────────────────────────────────────── */
+function burst(fxId, ms) {
+  const el = document.getElementById(fxId);
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), ms);
+}
+$('#btnWater').addEventListener('click', () => {
+  burst('fxWater', 2600);
+  S.soil = Math.min(95, S.soil + 14);
+  log(`Water pump <b>on</b> → soil ${S.soil.toFixed(0)}%`);
+  say('Slurp slurp! <b>Thank you!</b>', 3200);
+  render();
+});
+$('#btnMist').addEventListener('click', () => {
+  burst('fxMist', 2600);
+  S.hum = Math.min(95, S.hum + 12);
+  log(`Mist spray → humidity ${S.hum.toFixed(0)}%`);
+  say('Lovely mist! My leaves feel <b>fresh</b>.', 3200);
+  render();
+});
+$('#btnFan').addEventListener('click', e => {
+  S.fanOn = !S.fanOn;
+  e.currentTarget.classList.toggle('active', S.fanOn);
+  document.getElementById('fxFan').classList.toggle('show', S.fanOn);
+  log(`Fan <b>${S.fanOn ? 'on' : 'off'}</b>`);
+  if (S.fanOn) say('Ahh, that breeze is <b>perfect</b>.', 3000);
+  render();
+});
+$('#btnLight').addEventListener('click', e => {
+  S.lightOn = !S.lightOn;
+  e.currentTarget.classList.toggle('active', S.lightOn);
+  document.getElementById('fxLight').classList.toggle('show', S.lightOn);
+  log(`Grow light <b>${S.lightOn ? 'on' : 'off'}</b>`);
+  if (S.lightOn) say('Basking in the <b>glow</b>…', 3000);
+  render();
+});
+
+/* ── Scenarios + tour ──────────────────────────────────── */
+const SCENARIOS = {
+  heat:    { temp: 33.5, hum: 45, soil: 58, label: 'Heatwave' },
+  cold:    { temp: 14.0, hum: 70, soil: 60, label: 'Cold snap' },
+  dry:     { temp: 27.0, hum: 40, soil: 30, label: 'Dry soil' },
+  perfect: { temp: 24.0, hum: 65, soil: 62, label: 'Perfect day' },
+};
+function playScenario(key) {
+  const sc = SCENARIOS[key];
+  S.temp = sc.temp; S.hum = sc.hum; S.soil = sc.soil;
+  document.querySelectorAll('#scenarios .btn[data-sc]').forEach(b =>
+    b.classList.toggle('active', b.dataset.sc === key));
+  log(`Scenario: <b>${sc.label}</b>`);
+  render();
+}
+document.querySelectorAll('#scenarios .btn[data-sc]').forEach(b =>
+  b.addEventListener('click', () => { stopTour(); playScenario(b.dataset.sc); }));
+
+let tourTimer = null;
+const TOUR = ['perfect', 'heat', 'dry', 'cold', 'perfect'];
+function stopTour() {
+  clearInterval(tourTimer); tourTimer = null;
+  $('#tourBtn').classList.remove('active');
+  $('#tourBtn').textContent = 'Play tour';
+}
+$('#tourBtn').addEventListener('click', () => {
+  if (tourTimer) { stopTour(); return; }
+  let i = 0;
+  $('#tourBtn').classList.add('active');
+  $('#tourBtn').textContent = 'Stop tour';
+  log('Tour <b>started</b> — cycling moods');
+  playScenario(TOUR[i++ % TOUR.length]);
+  tourTimer = setInterval(() => {
+    if (i >= TOUR.length) { stopTour(); return; }
+    playScenario(TOUR[i++]);
+  }, 4000);
+});
+
+/* ── Sliders ───────────────────────────────────────────── */
+$('#slTemp').addEventListener('input', e => { S.temp = +e.target.value; render(); });
+$('#slHum').addEventListener('input', e => { S.hum = +e.target.value; render(); });
+$('#slSoil').addEventListener('input', e => { S.soil = +e.target.value; render(); });
+
+/* ── Ambient drift: fan cools, soil dries slowly ───────── */
+setInterval(() => {
+  let changed = false;
+  if (S.fanOn && S.temp > 22) { S.temp = Math.max(22, S.temp - 0.6); changed = true; }
+  if (!S.fanOn && S.temp < 31) { S.temp = Math.min(31, S.temp + 0.15); changed = true; }
+  S.soil = Math.max(22, S.soil - 0.25); changed = true;
+  if (changed) render();
+}, 2000);
+
+/* ── Init ──────────────────────────────────────────────── */
+setStage(2, true);
+render();
+log('Demo loaded — <b>PlantPal</b> says hi. Try a scenario or press <b>Play tour</b>.');
+</script>
+</body>
+</html>

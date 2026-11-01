@@ -115,9 +115,9 @@ function statusLabel(sid, s) {
 }
 
 // ── Router ──────────────────────────────────────────────────────────────────
-const TITLES = { dashboard: 'Dashboard', nodes: 'Nodes', profile: 'Profile', chat: 'Chat', decisions: 'Decisions', events: 'Events', readings: 'Readings' };
+const TITLES = { dashboard: 'Dashboard', nodes: 'Nodes', profile: 'Profile', plantpal: 'PlantPal', chat: 'Chat', decisions: 'Decisions', events: 'Events', readings: 'Readings' };
 const LOADERS = {
-  dashboard: loadDashboard, nodes: loadNodes, profile: loadProfile, chat: loadChat,
+  dashboard: loadDashboard, nodes: loadNodes, profile: loadProfile, plantpal: loadPlantpal, chat: loadChat,
   decisions: loadDecisions, events: loadEvents, readings: loadReadings,
 };
 
@@ -861,6 +861,201 @@ async function submitReading(key) {
   }
 }
 
+// ── PlantPal ────────────────────────────────────────────────────────────────
+let ppToast = null;    // {msg, until} — transient bubble message (acks, growth news)
+let ppLastStage = null;
+
+function ppPick(pred) {
+  return aggregateIds(state.sensors).find(s => pred(s.toLowerCase())) || null;
+}
+function ppTempSid() { return ppPick(s => s.includes('temp')); }
+function ppHumSid() { return ppPick(s => s.includes('humid')); }
+function ppSoilSid() {
+  return ppPick(s => s.includes('moist'))
+    || ppPick(s => s.includes('soil') && !s.includes('temp'));
+}
+function ppBand(sid) {
+  // 'low' | 'high' | 'ok' | null (no data or no target band)
+  const s = sid && state.sensors[sid];
+  if (!s || s.value == null) return null;
+  const t = s.target || activeTargets()[sid];
+  if (!t) return null;
+  if (s.value < t[0]) return 'low';
+  if (s.value > t[1]) return 'high';
+  return 'ok';
+}
+function ppNum(v, digits = 1) {
+  return v == null ? '–' : Number(v).toFixed(digits);
+}
+function ppUnit(sid) {
+  const s = state.sensors[sid] || {};
+  return unitLabel((metaFor(sid) || {}).unit || s.unit);
+}
+function ppMood() {
+  if (ppBand(ppSoilSid()) === 'low') return 'thirsty';
+  const tb = ppBand(ppTempSid());
+  if (tb === 'high') return 'hot';
+  if (tb === 'low') return 'cold';
+  return 'happy';
+}
+function ppStage() {
+  const phases = (state.profile && state.profile.phases) || [];
+  const fallback = (state.status && state.status.phase) || '—';
+  if (!phases.length) return { idx: 2, name: fallback, last: false };
+  const ai = Math.max(0, phases.findIndex(x => x.status === 'active'));
+  const n = phases.length;
+  return { idx: n <= 1 ? 2 : Math.round(ai / (n - 1) * 3), name: phases[ai].name, last: ai === n - 1 };
+}
+function ppMoodLine(mood, stage) {
+  const ts = ppTempSid(), ss = ppSoilSid();
+  const tv = ts ? state.sensors[ts].value : null, sv = ss ? state.sensors[ss].value : null;
+  if (mood === 'thirsty') return `So thirsty… soil at ${ppNum(sv, 0)}${ppUnit(ss)}`;
+  if (mood === 'hot') return `Too hot in here! (${ppNum(tv)}${ppUnit(ts)})`;
+  if (mood === 'cold') return `Brrr… chilly leaves (${ppNum(tv)}${ppUnit(ts)})`;
+  return stage.last ? 'Fruits are ripe — harvest time!' : 'Feeling great today!';
+}
+function ppActOn(...keywords) {
+  return (state.actuators || []).some(a => {
+    const s = a.id.toLowerCase();
+    return a.state === 'on' && keywords.some(k => s.includes(k));
+  });
+}
+const PP_FACE = {
+  happy: { eyes: 'eyesHappy', mouth: 'M271 236 q9 8 18 0', tear: false, shiver: false, droop: false, fx: ['fx-sparkle'] },
+  hot: { eyes: 'eyesSad', mouth: 'M271 240 q9 -6 18 0', tear: false, shiver: false, droop: true, fx: ['fx-rays'] },
+  cold: { eyes: 'eyesOpen', mouth: 'M273 238 h14', tear: false, shiver: true, droop: false, fx: ['fx-breath'] },
+  thirsty: { eyes: 'eyesSad', mouth: 'M271 240 q9 -6 18 0', tear: true, shiver: false, droop: true, fx: ['fx-drops'] },
+};
+const PP_MOOD_LABEL = { happy: 'Feeling great', hot: 'Too hot', cold: 'Too cold', thirsty: 'Needs water' };
+
+function ppSay(msg, ms = 2600) {
+  ppToast = { msg, until: Date.now() + ms };
+  $('#pp-bubble').textContent = msg;
+}
+function ppAck(id, value) {
+  if (value === 'off') return 'Okay, turning it off.';
+  const s = id.toLowerCase();
+  if (s.includes('pump') || s.includes('water')) return 'Slurp… thank you!';
+  if (s.includes('fan')) return 'Ahh, nice breeze!';
+  if (s.includes('mist') || s.includes('spray')) return 'So fresh and misty!';
+  if (s.includes('light') || s.includes('lamp') || s.includes('pwm')) return 'Basking in the glow!';
+  return 'Done!';
+}
+async function ppToggle(id, btn) {
+  const cur = (state.actuators || []).find(a => a.id === id);
+  const value = cur && cur.state === 'on' ? 'off' : 'on';
+  btn.disabled = true;
+  try {
+    const resp = await api(`/api/actuator/${id}`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ value }),
+    });
+    if (resp.error) throw new Error(resp.error);
+    ppSay(ppAck(id, value));
+    setTimeout(async () => {
+      try {
+        state.actuators = await api('/api/actuators');
+        if (state.view === 'plantpal') renderPlantpal();
+      } catch (e) { console.error('PlantPal refresh failed:', e); }
+    }, 800);
+  } catch (e) {
+    alert(`Failed to control ${id}: ${e.message}`);
+  } finally {
+    if (state.view === 'plantpal') renderPlantpal(); else btn.disabled = false;
+  }
+}
+function renderPpSensors() {
+  const el = $('#pp-sensors');
+  let trio = [ppTempSid(), ppHumSid(), ppSoilSid()].filter(Boolean);
+  if (!trio.length) trio = aggregateIds(state.sensors).slice(0, 3);
+  if (!trio.length) { el.innerHTML = '<span class="pp-sensor">waiting for sensors…</span>'; return; }
+  el.innerHTML = trio.map(sid => {
+    const s = state.sensors[sid];
+    const band = ppBand(sid);
+    const cls = !band ? '' : band === 'ok' ? 'ok'
+      : (sid.toLowerCase().includes('temp') && band === 'high' ? 'bad' : 'warn');
+    return `<span class="pp-sensor ${cls}"><svg class="ic" style="width:13px;height:13px"><use href="#${sensorIcon(sid)}"/></svg>`
+      + `<span class="pp-v">${ppNum(s.value)}</span><span class="pp-u">${esc(ppUnit(sid))}</span></span>`;
+  }).join('');
+}
+function renderPpControls() {
+  const el = $('#pp-actuators');
+  const list = state.actuators || [];
+  if (!list.length) { el.innerHTML = '<div class="empty-block">No actuators configured</div>'; return; }
+  el.innerHTML = list.map(a => {
+    const on = a.state === 'on';
+    const label = on ? 'On' : a.state === 'off' ? 'Off' : a.state;
+    return `<button class="pp-btn ${on ? 'on' : ''}" data-ppact="${esc(a.id)}">`
+      + `<span class="pp-ico"><svg class="ic"><use href="#${actuatorIcon(a.id)}"/></svg></span>`
+      + `<span>${esc(a.name)}</span><span class="pp-state">${esc(label)}</span></button>`;
+  }).join('');
+  el.querySelectorAll('[data-ppact]').forEach(b =>
+    b.addEventListener('click', () => ppToggle(b.dataset.ppact, b)));
+}
+function renderPpInfo() {
+  const p = state.profile || {}, s = state.status || {};
+  const tg = activeTargets();
+  const chips = Object.keys(tg).map(k => {
+    const t = tg[k];
+    return `<span class="chip" style="font-size:11px">${esc(displayName(k))} ${t[0]}–${t[1]}</span>`;
+  }).join('');
+  $('#pp-info').innerHTML =
+    `<div class="row"><span class="k">Plant</span><span class="v">${esc(p.name || p.cultivar || '—')}</span></div>`
+    + `<div class="row"><span class="k">Day</span><span class="v num">${s.day != null ? 'Day ' + s.day : '—'}</span></div>`
+    + `<div class="row"><span class="k">Phase</span><span class="v">${esc(s.phase || '—')}</span></div>`
+    + (chips ? `<div class="row"><span class="k">Targets</span></div><div class="pp-targets">${chips}</div>` : '');
+}
+function renderPlantpal() {
+  const mood = ppMood(), stage = ppStage(), face = PP_FACE[mood];
+  const mb = $('#pp-mood-badge');
+  mb.textContent = PP_MOOD_LABEL[mood];
+  mb.className = 'chip ' + (mood === 'happy' ? 'green' : 'amber');
+  $('#pp-growth-badge').textContent = stage.last ? `${stage.name} · ready!` : stage.name;
+  ['grow0', 'grow1', 'grow2', 'grow3'].forEach((id, i) =>
+    document.getElementById(id).setAttribute('opacity', i === stage.idx ? 1 : 0));
+  document.getElementById('grow7').setAttribute('opacity', stage.idx === 3 ? 1 : 0);
+  ['eyesOpen', 'eyesHappy', 'eyesSad'].forEach(id =>
+    document.getElementById(id).setAttribute('opacity', id === face.eyes ? 1 : 0));
+  document.getElementById('mouth').setAttribute('d', face.mouth);
+  document.getElementById('tear').classList.toggle('show', face.tear);
+  document.getElementById('char').classList.toggle('shiver', face.shiver);
+  document.getElementById('plantDroop').classList.toggle('droop', face.droop);
+  const fx = new Set(face.fx);
+  if (ppActOn('pump', 'water')) fx.add('fx-water');
+  if (ppActOn('mist', 'spray')) fx.add('fx-mist');
+  if (ppActOn('fan')) fx.add('fx-fan');
+  if (ppActOn('light', 'lamp', 'pwm')) fx.add('fx-lamp');
+  document.querySelectorAll('#view-plantpal .fx').forEach(g =>
+    g.classList.toggle('show', fx.has(g.id)));
+  if (ppLastStage !== null && stage.idx !== ppLastStage) {
+    ppSay(stage.idx > ppLastStage ? 'Look — I grew up!' : 'A new cycle begins!', 4000);
+  }
+  ppLastStage = stage.idx;
+  if (!ppToast || Date.now() > ppToast.until) {
+    ppToast = null;
+    $('#pp-bubble').textContent = ppMoodLine(mood, stage);
+  }
+  renderPpSensors();
+  renderPpControls();
+  renderPpInfo();
+}
+async function loadPlantpal() {
+  // Face rides above every growth stage (markup nests it in the leafy stage).
+  const char = document.getElementById('char');
+  if (char && char.parentElement && char.parentElement.id === 'grow2') {
+    document.getElementById('grow2').after(char);
+  }
+  try {
+    const [sensors, status, actuators] = await Promise.all([
+      api('/api/sensors/latest'), api('/api/status'), api('/api/actuators'),
+    ]);
+    state.sensors = sensors; state.status = status; state.actuators = actuators;
+    if (!state.profile) {
+      try { state.profile = await api('/api/profile'); } catch (e) { /* targets/phase optional */ }
+    }
+  } catch (e) { console.error('PlantPal load failed:', e); }
+  renderPlantpal();
+}
+
 // ── SSE live stream ─────────────────────────────────────────────────────────
 function connectStream() {
   const dot = $('#conn-dot'), label = $('#conn-label');
@@ -895,6 +1090,10 @@ function connectStream() {
           state.nodes = await api('/api/nodes');
           renderNodeList(); renderNodeDetail(); renderMatrix();
         } catch (err) { /* keep stale */ }
+      }
+      if (state.view === 'plantpal') {
+        if (payload.actuators) state.actuators = payload.actuators;
+        renderPlantpal();
       }
     } catch { /* malformed message — ignore */ }
   };
