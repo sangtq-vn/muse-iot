@@ -1,5 +1,9 @@
 # Muse-IoT
 
+<p align="center">
+  <img src="assets/banner.png" alt="Muse-IoT" width="100%">
+</p>
+
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![Meta](https://img.shields.io/badge/LLM-Muse_Spark-46d18c)](https://dev.meta.ai/models/muse-spark)
 [![Hackathon](https://img.shields.io/badge/hackathon-Meta_Global_AI_2026-blue)](https://cerebralvalley.ai/e/meta-ai-developer-hackathon/live)
@@ -14,7 +18,7 @@ Push the Frontier track, built with Muse Spark (`muse-spark-1.3` through the Met
 
 > Live system driving real relays. Use your own hardware at your own risk; the safety engine is a backstop, not a certification.
 
-![Muse-IoT grow pod concept: plant with face display, sensor holograms, ESP32](generated_images/call_01a196e480e0712bbb93e17ce826ef31.jpg)
+![Muse-IoT grow pod concept: plant with face display, sensor holograms, ESP32](assets/hero-grow-pod.jpg)
 
 ## Headline facts
 
@@ -68,7 +72,7 @@ flowchart LR
 
 Five layers; the core never changes per domain. New hardware is a plugin, new use cases are YAML.
 
-![Muse-IoT five-layer architecture with glowing Muse adapter](generated_images/call_01a19744a1fc756e8f58466bf45738ea.jpg)
+![Muse-IoT five-layer architecture with glowing Muse adapter](assets/architecture-5layer.jpg)
 
 | Plugin | What it does | Min required |
 |---|---|---|
@@ -84,7 +88,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for how to write each type, and [docs/arc
 
 Pi controller ⇆ ESP node over WiFi → relay → pump + fan. Total: under $15 plus the cooler.
 
-![Hardware overview: Pi controller, ESP node, relay, sensors, pump and fan](generated_images/call_01a1974b45f3766e88101d1466622c5e.jpg)
+![Hardware overview: Pi controller, ESP node, relay, sensors, pump and fan](assets/hardware-overview.jpg)
 
 | Device | Transport | Status |
 |---|---|---|
@@ -98,19 +102,19 @@ Pi controller ⇆ ESP node over WiFi → relay → pump + fan. Total: under $15 
 
 **PlantPal** — the plant has a face and moods: thirsty, hot, cold, happy, growing from sprout to fruit. Controls fire real actuators; the bubble speaks ("Slurp… thank you!").
 
-![PlantPal with pump and fan on](design/pitch-assets/plantpal-on.png)
+![PlantPal with pump and fan on](assets/feature-plantpal.png)
 
 **Decisions log** — every 2-minute call preserved: phase, commands, plain-English reason, model, latency. Safety overrides filterable.
 
-![LLM decisions log with reasons and latency](design/pitch-assets/decisions.png)
+![LLM decisions log with reasons and latency](assets/feature-decisions.png)
 
 **Chat** — ask *"what do you observe?"* and Muse answers with 24h avg/min/max per sensor. Statements become observations; `"pump on"` commands actuators.
 
-![Chat with Muse citing 24h stats](design/pitch-assets/chat.png)
+![Chat with Muse citing 24h stats](assets/feature-chat.png)
 
 **Dashboard + Nodes** — fleet summary with 24h charts and last decision; per-node detail with sensor matrix and online state. Fully offline UI (no CDN), live over SSE.
 
-![Dashboard sensors and 24h history](design/pitch-assets/dashboard-sensors.png)
+![Dashboard sensors and 24h history](assets/feature-dashboard.png)
 
 ## Quick start (Swiss chard garden box)
 
