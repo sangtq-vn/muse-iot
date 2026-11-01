@@ -242,9 +242,12 @@ td .rsn{color:var(--muted);font-size:12.5px;max-width:380px;display:block;line-h
   padding:5px 13px;border-radius:99px}
 .fchip:hover{color:var(--text)}
 .fchip.active{background:var(--green-dim);border-color:var(--green-line);color:var(--green)}
-.type-select{background:var(--panel2);border:1px solid var(--line);color:var(--text);
-  font-size:12px;font-weight:600;padding:5px 10px;border-radius:99px;outline:none;max-width:200px}
-.type-select:focus{border-color:var(--green-line)}
+.type-select{appearance:none;-webkit-appearance:none;cursor:pointer;
+  background:var(--panel2) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%2368736a' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat right 12px center;
+  border:1px solid var(--line);color:var(--muted);
+  font-size:12px;font-weight:600;padding:5px 30px 5px 13px;border-radius:99px;outline:none;max-width:220px}
+.type-select:hover{color:var(--text);border-color:var(--green-line)}
+.type-select:focus{border-color:var(--green-line);color:var(--text)}
 .feed-row.expandable{cursor:pointer}
 .feed-row.expandable:hover .feed-type{color:var(--green)}
 .feed-row.expanded .feed-note{white-space:normal;overflow:visible;text-overflow:clip}

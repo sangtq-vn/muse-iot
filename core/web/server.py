@@ -15,7 +15,7 @@ from typing import AsyncGenerator, Optional
 import yaml
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -515,7 +515,25 @@ async def stream():
     )
 
 
-# ── Static files (registered last so /api routes win) ────────────────────────
+# ── Dashboard shell (registered before the static mount so it wins on /) ──────
 
 _static = Path(__file__).parent / "static"
+
+
+@app.get("/", response_class=HTMLResponse)
+def index():
+    """Serve index.html with mtime-versioned assets so browsers never run
+    stale JS/CSS after an upgrade. HTML itself is never cached."""
+    html = (_static / "index.html").read_text()
+    for asset in ("style.css", "app.js"):
+        path = _static / asset
+        if path.exists():
+            v = int(path.stat().st_mtime)
+            html = html.replace(f'href="{asset}"', f'href="{asset}?v={v}"')
+            html = html.replace(f'src="{asset}"', f'src="{asset}?v={v}"')
+    return HTMLResponse(html, headers={"Cache-Control": "no-store"})
+
+
+# ── Static files (registered last so /api routes win) ────────────────────────
+
 app.mount("/", StaticFiles(directory=str(_static), html=True), name="static")
